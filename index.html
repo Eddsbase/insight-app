@@ -203,7 +203,7 @@
   <!-- SIGN-IN VIEW -->
   <section class="card view" id="signInView" style="max-width:540px;margin:0 auto">
     <h2>Sign in to continue</h2>
-    <div class="hint">Insight is gated. Enter your email — we'll send you a magic link. First-time users are added to a waitlist for admin approval.</div>
+    <div class="hint">Insight is invite-only. Enter your email — if you've been invited, we'll send you a magic link. Otherwise, contact an admin.</div>
     <div id="emailSignInArea">
       <label for="signInEmail" style="margin-top:14px;display:block">Email</label>
       <input type="email" id="signInEmail" placeholder="you@example.com" autocomplete="email" />
@@ -216,18 +216,32 @@
     <div class="note" id="signInError" style="margin-top:12px;color:var(--warn)"></div>
   </section>
 
-  <!-- WAITLIST VIEW (signed in but not yet allowed) -->
+  <!-- ACCESS DENIED VIEW (signed in but not on invite list) -->
   <section class="card view" id="waitlistView" style="display:none;max-width:540px;margin:0 auto">
-    <h2>You're on the waitlist</h2>
-    <div class="hint">Your account <b id="waitEmail"></b> has been created. An admin needs to approve access before you can run analyses.</div>
-    <button class="clear" id="waitRefresh" type="button" style="margin-top:10px">Check again</button>
+    <h2>Access not granted</h2>
+    <div class="hint">Your account <b id="waitEmail"></b> is not on the invite list. Insight is invite-only — ask an admin to add your email.</div>
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+      <button class="clear" id="waitRefresh" type="button">Check again</button>
+      <button class="clear" id="waitSignOut" type="button">Sign out</button>
+    </div>
   </section>
 
   <!-- ADMIN VIEW -->
   <section class="card view" id="adminView" style="display:none">
-    <h2>Admin · users</h2>
-    <div class="hint">Toggle <b>allowed</b> to approve analysis access. Toggle <b>admin</b> to grant admin rights.</div>
-    <div id="adminTableWrap"></div>
+    <h2>Admin · access</h2>
+    <div class="hint">Insight is invite-only. Add an email below to pre-authorize it — when that person signs in, they'll be auto-approved. You can also toggle access for people who already have accounts.</div>
+
+    <div style="margin:18px 0 10px">
+      <label style="display:block">Invite by email</label>
+      <div style="display:flex;gap:8px;align-items:stretch;flex-wrap:wrap">
+        <input type="email" id="inviteEmail" placeholder="someone@example.com" style="flex:1;min-width:220px" />
+        <button class="run" id="inviteBtn" type="button" style="padding:10px 20px">Add to invite list</button>
+      </div>
+      <div class="note" id="inviteStatus" style="margin-top:6px"></div>
+    </div>
+
+    <div id="invitedWrap" style="margin-top:18px"></div>
+    <div id="adminTableWrap" style="margin-top:18px"></div>
     <div class="note" id="adminStatus" style="margin-top:10px"></div>
   </section>
 
@@ -690,6 +704,11 @@ document.getElementById('waitRefresh').addEventListener('click', async () => {
   await handleSession(session);
 });
 
+document.getElementById('waitSignOut').addEventListener('click', async () => {
+  if (!supabase) return;
+  await supabase.auth.signOut();
+});
+
 document.getElementById('adminToggle').addEventListener('click', async () => {
   const visible = document.getElementById('adminView').style.display !== 'none';
   if (visible) { showView('toolView'); return; }
@@ -697,19 +716,116 @@ document.getElementById('adminToggle').addEventListener('click', async () => {
   await loadAdminUsers();
 });
 
+document.getElementById('inviteBtn').addEventListener('click', async () => {
+  const status = document.getElementById('inviteStatus');
+  const input = document.getElementById('inviteEmail');
+  const email = (input.value || '').trim().toLowerCase();
+  status.textContent = '';
+  status.style.color = 'var(--muted)';
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    status.textContent = 'Enter a valid email address.';
+    status.style.color = 'var(--warn)';
+    return;
+  }
+  const btn = document.getElementById('inviteBtn');
+  btn.disabled = true;
+  const originalLabel = btn.textContent;
+  btn.textContent = 'Adding…';
+  const { error } = await supabase.from('admin_emails').insert({ email });
+  btn.disabled = false;
+  btn.textContent = originalLabel;
+  if (error) {
+    if ((error.message || '').toLowerCase().includes('duplicate') || error.code === '23505') {
+      status.textContent = `${email} is already on the invite list.`;
+      status.style.color = 'var(--warn)';
+    } else {
+      status.textContent = 'Failed: ' + error.message;
+      status.style.color = 'var(--warn)';
+    }
+    return;
+  }
+  // If a matching profile already exists, auto-allow them
+  await supabase.from('profiles').update({ allowed: true }).eq('email', email);
+  input.value = '';
+  status.textContent = `Invited ${email}. They can sign in now.`;
+  status.style.color = 'var(--ok)';
+  await loadAdminUsers();
+});
+
+document.getElementById('inviteEmail').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('inviteBtn').click();
+});
+
 async function loadAdminUsers(){
   const statusEl = document.getElementById('adminStatus');
-  statusEl.textContent = 'Loading users…';
-  const { data, error } = await supabase.from('profiles').select('*').order('created_at', {ascending:false});
-  if (error) { statusEl.textContent = 'Error: ' + error.message; return; }
-  statusEl.textContent = `${data.length} user${data.length===1?'':'s'}`;
+  statusEl.textContent = 'Loading…';
+
+  const [profilesRes, invitesRes] = await Promise.all([
+    supabase.from('profiles').select('*').order('created_at', {ascending:false}),
+    supabase.from('admin_emails').select('email').order('email', {ascending:true}),
+  ]);
+
+  if (profilesRes.error) { statusEl.textContent = 'Error: ' + profilesRes.error.message; return; }
+  if (invitesRes.error) { statusEl.textContent = 'Error loading invites: ' + invitesRes.error.message; return; }
+
+  const profiles = profilesRes.data || [];
+  const invites = invitesRes.data || [];
+
+  const profileEmails = new Set(profiles.map(p => (p.email||'').toLowerCase()));
+  const pendingInvites = invites.filter(i => !profileEmails.has((i.email||'').toLowerCase()));
+
+  // --- Pending invites block ---
+  const invWrap = document.getElementById('invitedWrap');
+  invWrap.innerHTML = '';
+  const invHeader = document.createElement('div');
+  invHeader.style.cssText = 'display:flex;align-items:baseline;gap:10px;margin-bottom:8px';
+  invHeader.innerHTML = `<h4 style="margin:0;font-size:13px;color:var(--accent2);letter-spacing:.14em;text-transform:uppercase">Invited · not yet signed in</h4>
+    <span class="note">${pendingInvites.length} pending</span>`;
+  invWrap.appendChild(invHeader);
+
+  if (pendingInvites.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'note';
+    empty.textContent = 'No pending invites.';
+    invWrap.appendChild(empty);
+  } else {
+    const invTable = document.createElement('table');
+    invTable.className = 'admTable';
+    invTable.innerHTML = `<thead><tr><th>Email</th><th style="width:120px">Action</th></tr></thead><tbody></tbody>`;
+    const itb = invTable.querySelector('tbody');
+    pendingInvites.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escape(row.email)}</td>
+        <td><button class="clear" data-revoke="${escape(row.email)}" style="padding:4px 10px;font-size:12px">Revoke</button></td>`;
+      itb.appendChild(tr);
+    });
+    invWrap.appendChild(invTable);
+    itb.querySelectorAll('button[data-revoke]').forEach(b => {
+      b.addEventListener('click', async () => {
+        const e = b.getAttribute('data-revoke');
+        b.disabled = true; b.textContent = '…';
+        const { error } = await supabase.from('admin_emails').delete().eq('email', e);
+        if (error) { statusEl.textContent = 'Revoke failed: ' + error.message; b.disabled = false; b.textContent = 'Revoke'; return; }
+        statusEl.textContent = `Revoked invite for ${e}.`;
+        await loadAdminUsers();
+      });
+    });
+  }
+
+  // --- Existing users table ---
   const wrap = document.getElementById('adminTableWrap');
   wrap.innerHTML = '';
+  const usersHeader = document.createElement('div');
+  usersHeader.style.cssText = 'display:flex;align-items:baseline;gap:10px;margin-bottom:8px';
+  usersHeader.innerHTML = `<h4 style="margin:0;font-size:13px;color:var(--accent2);letter-spacing:.14em;text-transform:uppercase">Signed-in users</h4>
+    <span class="note">${profiles.length} user${profiles.length===1?'':'s'}</span>`;
+  wrap.appendChild(usersHeader);
+
   const table = document.createElement('table');
   table.className = 'admTable';
   table.innerHTML = `<thead><tr><th>User</th><th>Email</th><th>Allowed</th><th>Admin</th><th>Created</th></tr></thead><tbody></tbody>`;
   const tbody = table.querySelector('tbody');
-  data.forEach(row => {
+  profiles.forEach(row => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${row.avatar_url ? `<img src="${escape(row.avatar_url)}">` : ''}${escape(row.full_name || '—')}</td>
@@ -732,6 +848,8 @@ async function loadAdminUsers(){
       else { statusEl.textContent = `Updated ${field} for user.`; }
     });
   });
+
+  statusEl.textContent = '';
 }
 
 initAuth().catch(e => {
