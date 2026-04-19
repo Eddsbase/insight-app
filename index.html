@@ -1,1 +1,1320 @@
-test content for format detection
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Insight</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+  window._supabaseCreateClient = createClient;
+</script>
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --panel:#11111180;
+    --panel-solid:#151515;
+    --ink:#f4f1ff;
+    --muted:#8a8496;
+    --line:#1f1f23;
+    --accent:#a78bfa;
+    --accent2:#c5b4ff;
+    --lime:#caff33;
+    --warn:#fd5b38;
+    --ok:#34d399;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif;min-height:100vh;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(600px 400px at 10% 0%, rgba(167,139,250,.08) 0%, transparent 60%),radial-gradient(500px 500px at 100% 20%, rgba(202,255,51,.04) 0%, transparent 60%)}
+  a{color:var(--accent2)}
+  .wrap{max-width:1280px;margin:0 auto;padding:40px 28px 80px;position:relative;z-index:1}
+  header{display:flex;flex-direction:column;gap:18px;margin-bottom:48px;padding-bottom:32px;border-bottom:1px solid var(--line)}
+  .hero{display:flex;flex-direction:column;gap:30px}
+  .brand{display:flex;align-items:center;gap:16px}
+  .mark{width:56px;height:56px;flex:0 0 auto;filter:drop-shadow(0 0 18px rgba(167,139,250,.6))}
+  .title{
+    font-family:"Plus Jakarta Sans",ui-sans-serif,system-ui,sans-serif;
+    font-weight:700;
+    font-size:clamp(44px,6.5vw,80px);
+    line-height:1;
+    letter-spacing:-.03em;
+    color:var(--ink);
+    margin:0;
+  }
+  .eyebrow{font-family:"Plus Jakarta Sans";font-size:12px;text-transform:uppercase;letter-spacing:.28em;color:var(--muted);font-weight:500;margin-bottom:-4px}
+  .sub{color:var(--muted);max-width:560px;font-size:15px;line-height:1.6}
+  .rot-btn{
+    position:relative;width:140px;height:140px;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .rot-btn svg.ring{position:absolute;inset:0;width:100%;height:100%;animation:spin 14s linear infinite}
+  .rot-btn svg.ring text{fill:var(--ink);font:600 12px "Plus Jakarta Sans";letter-spacing:.28em;text-transform:uppercase}
+  .rot-btn .core{width:64px;height:64px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#120a24;font-weight:800;box-shadow:0 0 40px rgba(167,139,250,.5)}
+  .rot-btn .core svg{width:22px;height:22px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (max-width:720px){.rot-btn{width:110px;height:110px} .rot-btn .core{width:48px;height:48px}}
+  .grid{display:grid;grid-template-columns:1.1fr 1fr;gap:24px}
+  @media (max-width:960px){.grid{grid-template-columns:1fr}}
+  .card{background:#0f0f0f;border:1px solid var(--line);border-radius:18px;padding:28px;position:relative}
+  .card::before{content:"";position:absolute;top:0;left:24px;right:24px;height:1px;background:linear-gradient(90deg,transparent,rgba(167,139,250,.35),transparent)}
+  .card h2{margin:0 0 8px;font-family:"Plus Jakarta Sans",sans-serif;font-weight:700;font-size:22px;letter-spacing:-.02em}
+  .card .hint{color:var(--muted);font-size:13px;margin-bottom:20px;line-height:1.55}
+  .modes{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .mode{border:1px solid var(--line);background:transparent;color:var(--muted);padding:9px 16px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;transition:.15s}
+  .mode:hover{border-color:var(--accent);color:var(--ink)}
+  .mode.active{background:var(--ink);color:#0a0a0a;border-color:var(--ink)}
+  .panel{display:none;gap:14px;flex-direction:column}
+  .panel.active{display:flex}
+  label{font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;display:block}
+  textarea,input[type=text],input[type=url],input[type=password]{width:100%;background:#0f0d22;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px 12px;font:14px/1.5 ui-sans-serif,system-ui,Arial;outline:none;transition:border .15s}
+  textarea{min-height:140px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+  textarea:focus,input:focus{border-color:var(--accent)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){.row{grid-template-columns:1fr}}
+  .file{display:flex;align-items:center;gap:10px}
+  .file button{background:#221c48;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer}
+  .file button:hover{border-color:var(--accent)}
+  .file span{color:var(--muted);font-size:12px}
+  .actions{display:flex;align-items:center;gap:12px;margin-top:6px}
+  .run{background:var(--accent);color:#120a24;border:none;padding:14px 26px;font-weight:800;border-radius:999px;cursor:pointer;font-size:12px;letter-spacing:.2em;text-transform:uppercase;transition:.15s}
+  .run:hover:not(:disabled){background:var(--lime);color:#0a0a0a;box-shadow:0 0 30px rgba(202,255,51,.4)}
+  .run:disabled{opacity:.5;cursor:not-allowed}
+  .clear{background:transparent;border:1px solid var(--line);color:var(--muted);padding:10px 14px;border-radius:10px;cursor:pointer}
+  .note{color:var(--muted);font-size:12px}
+
+  /* right column */
+  .status{min-height:40px;color:var(--muted);font-size:13px}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-3px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* results */
+  .resultsWrap{display:none;flex-direction:column;gap:22px}
+  .resultsWrap.visible{display:flex}
+  .traitBlock h3{margin:0 0 14px;font-family:"Plus Jakarta Sans",sans-serif;font-weight:700;font-size:17px;letter-spacing:-.01em;color:var(--ink)}
+  .traitBlock h3 .note{color:var(--muted);font-family:"Plus Jakarta Sans";font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:none}
+  .traitBlock h4{margin:14px 0 6px;font-size:11px;color:var(--accent2);font-weight:700;letter-spacing:.18em;text-transform:uppercase}
+  .trait{display:grid;grid-template-columns:170px 1fr 52px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed #26234a}
+  .trait.sub{grid-template-columns:170px 1fr 48px;padding:4px 0;border-bottom:none;color:var(--muted);font-size:12.5px}
+  .trait:last-child{border-bottom:none}
+  .traitName{font-weight:600}
+  .traitName.sub{font-weight:500;padding-left:10px}
+  .bar{position:relative;height:10px;background:#1a1838;border-radius:999px;overflow:hidden}
+  .bar.sm{height:6px}
+  .bar > span{position:absolute;top:0;bottom:0;left:0;background:linear-gradient(90deg,#7dd3fc,#a78bfa,#f472b6);border-radius:999px}
+  .bar > .ci{position:absolute;top:-3px;bottom:-3px;background:transparent;border-left:1px dashed #ffffff55;border-right:1px dashed #ffffff55}
+  .pct{font-variant-numeric:tabular-nums;text-align:right;color:var(--ink);font-size:13px}
+  .pct.sub{color:var(--muted);font-size:12px}
+  .narrative{white-space:pre-wrap;color:#e3dfff;line-height:1.6}
+  .markers{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .chip{font-size:12px;background:#1d1a3d;border:1px solid var(--line);padding:4px 8px;border-radius:999px;color:#c9c2ff}
+  .conf{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:999px;margin-left:8px;vertical-align:2px;border:1px solid var(--line);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .conf.hi{color:#0b2018;background:#34d399;border-color:#34d399}
+  .conf.md{color:#2b2208;background:#fbbf24;border-color:#fbbf24}
+  .conf.lo{color:#2a0f1a;background:#f472b6;border-color:#f472b6}
+  details{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#0f0d22}
+  details + details{margin-top:8px}
+  summary{cursor:pointer;font-weight:600}
+  summary::marker{color:var(--accent)}
+  .dl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .dl button{background:#221c48;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer}
+  .dl button:hover{border-color:var(--accent)}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}
+  .kv dt{color:var(--muted)}
+  .kv dd{margin:0;color:var(--ink)}
+  .list{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+  .list li{padding:6px 10px;background:#14112b;border:1px solid var(--line);border-radius:8px;font-size:13px;color:#d9d4ff}
+  .quote{border-left:3px solid var(--accent);padding:6px 12px;color:#d9d4ff;background:#14112b;border-radius:6px;font-size:13px;margin:6px 0}
+  .quote .src{color:var(--accent2);font-size:11px;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:720px){.grid2{grid-template-columns:1fr}}
+  .panelCard{background:#120f28;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .panelCard h4{margin-top:0}
+  .disc{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px}
+  .disc .tile{background:#14112b;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+  .disc .tile b{display:block;font-size:22px;color:var(--accent)}
+  .disc .tile.primary{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .err{background:#3a1723;border:1px solid #f472b6;color:#ffd4e5;padding:10px 12px;border-radius:10px;font-size:13px}
+  .tag{display:inline-block;font-size:11px;padding:2px 7px;border:1px solid var(--line);border-radius:4px;color:var(--muted);margin-left:6px}
+  .keyrow{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .keyrow input{flex:1}
+  .keyrow .saved{color:var(--ok);font-size:12px}
+  footer{margin-top:36px;color:var(--muted);font-size:12px;text-align:center}
+
+  /* topbar + auth views */
+  .topbar{display:flex;justify-content:flex-end;padding:8px 0 0}
+  .user{display:flex;align-items:center;gap:12px;background:#111;border:1px solid var(--line);padding:8px 14px;border-radius:999px}
+  .user img{width:28px;height:28px;border-radius:50%;background:#222}
+  .user > div:nth-child(2){line-height:1.2}
+  .user .note{font-size:11px}
+  .linkbtn{background:transparent;border:1px solid var(--line);color:var(--muted);padding:6px 12px;border-radius:999px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;font-weight:600}
+  .linkbtn:hover{border-color:var(--accent);color:var(--ink)}
+
+  /* admin table */
+  .admTable{width:100%;border-collapse:collapse;font-size:13px}
+  .admTable th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:10px 8px;border-bottom:1px solid var(--line)}
+  .admTable td{padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .admTable tr:hover td{background:#0f0f0f}
+  .admTable img{width:28px;height:28px;border-radius:50%;vertical-align:middle;margin-right:8px;background:#222}
+  .switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+  .switch input{appearance:none;width:34px;height:18px;background:#2a2a2f;border-radius:999px;position:relative;cursor:pointer;transition:.15s;flex-shrink:0}
+  .switch input:checked{background:var(--accent)}
+  .switch input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:.15s}
+  .switch input:checked::after{left:18px}
+  .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:999px;background:#1d1a3d;color:var(--accent2);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+  .badge.adm{background:var(--accent);color:#120a24}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar" id="topbar">
+    <div class="user" id="userBadge" style="display:none">
+      <img id="userAvatar" alt="" />
+      <div>
+        <div id="userName"></div>
+        <div class="note" id="userEmail"></div>
+      </div>
+      <button class="linkbtn" id="adminToggle" style="display:none">Admin</button>
+      <button class="linkbtn" id="signOut">Sign out</button>
+    </div>
+  </div>
+
+  <header>
+    <div class="eyebrow">Computational personality inference · v0.1</div>
+    <div class="hero">
+      <div>
+        <div class="rot-btn" aria-hidden="true">
+          <svg class="ring" viewBox="0 0 140 140">
+            <defs>
+              <path id="textcircle" d="M70,130 a60,60 0 0,1 0,-120 a60,60 0 0,1 0,120 Z"/>
+            </defs>
+            <text><textPath href="#textcircle" startOffset="0">Insight · Insight · Insight · </textPath></text>
+          </svg>
+          <div class="core">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          </div>
+        </div>
+        <p class="sub" style="margin-top:20px">A psychometric probe. Feed it a resume, LinkedIn, or Facebook — individually or combined — and get a full Big Five, HEXACO, Dark Triad, DISC, attachment and values read with the linguistic evidence behind every estimate.</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- SIGN-IN VIEW -->
+  <section class="card view" id="signInView" style="max-width:540px;margin:0 auto">
+    <h2>Sign in to continue</h2>
+    <div class="hint">Insight is gated. Sign in with Google — a member of the team will approve your access.</div>
+    <button class="run" id="googleBtn" type="button" style="margin-top:10px">Continue with Google</button>
+    <div class="note" id="signInError" style="margin-top:12px;color:var(--warn)"></div>
+  </section>
+
+  <!-- WAITLIST VIEW (signed in but not yet allowed) -->
+  <section class="card view" id="waitlistView" style="display:none;max-width:540px;margin:0 auto">
+    <h2>You're on the waitlist</h2>
+    <div class="hint">Your account <b id="waitEmail"></b> has been created. An admin needs to approve access before you can run analyses.</div>
+    <button class="clear" id="waitRefresh" type="button" style="margin-top:10px">Check again</button>
+  </section>
+
+  <!-- ADMIN VIEW -->
+  <section class="card view" id="adminView" style="display:none">
+    <h2>Admin · users</h2>
+    <div class="hint">Toggle <b>allowed</b> to approve analysis access. Toggle <b>admin</b> to grant admin rights.</div>
+    <div id="adminTableWrap"></div>
+    <div class="note" id="adminStatus" style="margin-top:10px"></div>
+  </section>
+
+  <div class="grid view" id="toolView" style="display:none">
+    <!-- LEFT: INPUTS -->
+    <section class="card">
+      <h2>Inputs</h2>
+      <div class="hint">Pick a mode. Add as many sources as you want — more sources = higher confidence.</div>
+
+      <div class="modes" role="tablist">
+        <button class="mode active" data-mode="resume">Resume</button>
+        <button class="mode" data-mode="linkedin">LinkedIn</button>
+        <button class="mode" data-mode="facebook">Facebook</button>
+        <button class="mode" data-mode="combined">Deeper Look (all)</button>
+      </div>
+
+      <!-- Resume -->
+      <div class="panel active" data-panel="resume">
+        <div>
+          <label>Upload resume <span class="tag">.txt .md .pdf .docx</span></label>
+          <div class="file">
+            <button type="button" id="resumeFileBtn">Choose file…</button>
+            <input type="file" id="resumeFile" accept=".txt,.md,.pdf,.doc,.docx" style="display:none" />
+            <span id="resumeFileName">No file selected</span>
+          </div>
+          <div class="note" style="margin-top:6px">PDF/DOCX are read as text; if extraction is rough, paste instead.</div>
+        </div>
+        <div>
+          <label>Or paste resume text</label>
+          <textarea id="resumeText" placeholder="Paste the resume here — plain text is fine. Include dates, titles, bullets, anything you have."></textarea>
+        </div>
+        <div>
+          <label>Social &amp; portfolio links <span class="tag">optional</span></label>
+          <div class="row">
+            <div>
+              <label style="font-size:11px;margin-bottom:3px">LinkedIn</label>
+              <input type="url" id="resumeLinkedinUrl" placeholder="https://linkedin.com/in/…" />
+            </div>
+            <div>
+              <label style="font-size:11px;margin-bottom:3px">GitHub</label>
+              <input type="url" id="resumeGithubUrl" placeholder="https://github.com/…" />
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <div>
+              <label style="font-size:11px;margin-bottom:3px">Twitter / X</label>
+              <input type="url" id="resumeTwitterUrl" placeholder="https://x.com/…" />
+            </div>
+            <div>
+              <label style="font-size:11px;margin-bottom:3px">Portfolio / website</label>
+              <input type="url" id="resumePortfolioUrl" placeholder="https://…" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LinkedIn -->
+      <div class="panel" data-panel="linkedin">
+        <div>
+          <label>LinkedIn URL (optional, for reference)</label>
+          <input type="url" id="linkedinUrl" placeholder="https://www.linkedin.com/in/…" />
+        </div>
+        <div>
+          <label>Paste LinkedIn content</label>
+          <textarea id="linkedinText" placeholder="Paste the About/Headline/Experience/Activity/Recommendations sections. The more, the better — activity & recommendations reveal voice."></textarea>
+          <div class="note" style="margin-top:6px">LinkedIn blocks automated scraping. Copy directly from the profile.</div>
+        </div>
+      </div>
+
+      <!-- Facebook -->
+      <div class="panel" data-panel="facebook">
+        <div>
+          <label>Facebook URL (optional)</label>
+          <input type="url" id="facebookUrl" placeholder="https://www.facebook.com/…" />
+        </div>
+        <div>
+          <label>Paste Facebook content</label>
+          <textarea id="facebookText" placeholder="Paste bio, recent posts, status updates, captions, comments. Casual writing carries strong Big Five signal — include at least a few posts."></textarea>
+        </div>
+      </div>
+
+      <!-- Combined -->
+      <div class="panel" data-panel="combined">
+        <div>
+          <label>Resume — upload</label>
+          <div class="file">
+            <button type="button" id="comboResumeBtn">Choose file…</button>
+            <input type="file" id="comboResumeFile" accept=".txt,.md,.pdf,.doc,.docx" style="display:none" />
+            <span id="comboResumeName">No file selected</span>
+          </div>
+        </div>
+        <div>
+          <label>Resume — or paste</label>
+          <textarea id="comboResumeText" placeholder="Paste resume text here"></textarea>
+        </div>
+        <div class="row">
+          <div>
+            <label>LinkedIn URL</label>
+            <input type="url" id="comboLinkedinUrl" placeholder="https://www.linkedin.com/in/…" />
+          </div>
+          <div>
+            <label>Facebook URL</label>
+            <input type="url" id="comboFacebookUrl" placeholder="https://www.facebook.com/…" />
+          </div>
+        </div>
+        <div>
+          <label>LinkedIn content</label>
+          <textarea id="comboLinkedinText" placeholder="Paste About / Experience / Activity / Recommendations"></textarea>
+        </div>
+        <div>
+          <label>Facebook content</label>
+          <textarea id="comboFacebookText" placeholder="Paste bio, posts, status updates, comments"></textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="run" id="runBtn">Run Insight</button>
+        <button class="clear" id="clearBtn" type="button">Clear</button>
+        <span class="note" id="inputSummary"></span>
+      </div>
+
+      <div class="note" id="authStatus" style="margin-top:16px"></div>
+    </section>
+
+    <!-- RIGHT: RESULTS -->
+    <section class="card">
+      <h2>The Read</h2>
+      <div class="hint">Continuous percentiles with 80% confidence intervals. Expand any section for facet-level depth.</div>
+      <div class="status" id="status">Awaiting input.</div>
+
+      <div class="resultsWrap" id="results">
+        <div class="dl">
+          <button id="dlHtml" type="button">Download full report (HTML)</button>
+          <button id="dlMd" type="button">Download as Markdown</button>
+          <button id="dlJson" type="button">Download raw JSON</button>
+        </div>
+
+        <div class="traitBlock">
+          <h3>Executive summary</h3>
+          <div class="narrative" id="narrative"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>Big Five — OCEAN <span class="note">(NEO-PI-R facets + DeYoung aspects)</span></h3>
+          <div id="bigfive"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>HEXACO <span class="note">(incl. Honesty-Humility)</span></h3>
+          <div id="hexaco"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>Dark Triad <span class="note">(Mach / Narcissism / Psychopathy)</span></h3>
+          <div id="darkTriad"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>DISC communication style</h3>
+          <div id="disc"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>Attachment &amp; interpersonal patterns</h3>
+          <div id="attachment"></div>
+        </div>
+
+        <div class="grid2">
+          <div class="traitBlock panelCard">
+            <h4>Top values (Schwartz)</h4>
+            <div id="values"></div>
+          </div>
+          <div class="traitBlock panelCard">
+            <h4>Motivational drivers</h4>
+            <div id="drivers"></div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="traitBlock panelCard">
+            <h4>Strengths</h4>
+            <ul class="list" id="strengths"></ul>
+          </div>
+          <div class="traitBlock panelCard">
+            <h4>Blind spots</h4>
+            <ul class="list" id="blindspots"></ul>
+          </div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>Derailers under stress</h3>
+          <ul class="list" id="derailers"></ul>
+        </div>
+
+        <div class="traitBlock">
+          <h3>How to communicate with them</h3>
+          <div id="commGuide"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>How to motivate them</h3>
+          <div id="motivGuide"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>Career &amp; role fit</h3>
+          <div id="careerFit"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>Cognitive style</h3>
+          <div id="cognitive"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>Self-presentation strategy</h3>
+          <div class="narrative" id="selfPres"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>Evidence map <span class="note">(quotes → constructs)</span></h3>
+          <div id="evidence"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>Cross-source convergence / divergence</h3>
+          <div class="narrative" id="crossSrc"></div>
+        </div>
+
+        <div class="traitBlock">
+          <h3>Caveats &amp; limits</h3>
+          <div class="narrative" id="caveats" style="color:var(--muted)"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    Big Five (NEO-PI-R, 30 facets) / HEXACO (24 facets) / Dark Triad / DISC · Lexical markers from Pennebaker, Yarkoni, Park et al. · Continuous percentiles with 80% CIs, quote-anchored evidence. Hiring-signal grade: use alongside structured interviews and validated work samples. Not clinical or diagnostic.
+  </footer>
+</div>
+
+<script>
+/* ---------- tabs ---------- */
+const modes = document.querySelectorAll('.mode');
+const panels = document.querySelectorAll('.panel');
+modes.forEach(b => b.addEventListener('click', () => {
+  modes.forEach(m => m.classList.remove('active'));
+  panels.forEach(p => p.classList.remove('active'));
+  b.classList.add('active');
+  document.querySelector(`.panel[data-panel="${b.dataset.mode}"]`).classList.add('active');
+  updateSummary();
+}));
+
+/* ---------- file handling ---------- */
+function wireFile(btnId, inputId, nameId, targetTextareaId){
+  const btn = document.getElementById(btnId);
+  const input = document.getElementById(inputId);
+  const name = document.getElementById(nameId);
+  btn.addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const f = input.files[0];
+    if (!f) return;
+    name.textContent = f.name + ' (reading…)';
+    try {
+      const text = await readFileAsText(f);
+      document.getElementById(targetTextareaId).value = text;
+      name.textContent = f.name + ` — ${text.length.toLocaleString()} chars loaded`;
+      updateSummary();
+    } catch (e) {
+      name.textContent = 'Could not read: ' + (e.message || e);
+    }
+  });
+}
+wireFile('resumeFileBtn','resumeFile','resumeFileName','resumeText');
+wireFile('comboResumeBtn','comboResumeFile','comboResumeName','comboResumeText');
+
+async function readFileAsText(file){
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (['txt','md','markdown',''].includes(ext)){
+    return await file.text();
+  }
+  if (ext === 'pdf') {
+    // naive fallback: try reading as text; most PDFs won't decode cleanly this way
+    const buf = await file.arrayBuffer();
+    const str = new TextDecoder('utf-8', {fatal:false}).decode(buf);
+    // strip binary blobs, keep runs of ASCII
+    const ascii = str.replace(/[^\x09\x0a\x0d\x20-\x7e]+/g,' ').replace(/\s+/g,' ').trim();
+    if (ascii.length < 200) throw new Error('PDF text extraction weak — please paste the resume instead');
+    return ascii;
+  }
+  if (ext === 'docx' || ext === 'doc') {
+    const buf = await file.arrayBuffer();
+    // docx is a zip of xml — look for word/document.xml inside
+    const str = new TextDecoder('utf-8',{fatal:false}).decode(buf);
+    const ascii = str.replace(/[^\x09\x0a\x0d\x20-\x7e]+/g,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+    if (ascii.length < 200) throw new Error('DOCX text extraction weak — please paste instead');
+    return ascii;
+  }
+  return await file.text();
+}
+
+/* ---------- input summary ---------- */
+function currentMode(){ return document.querySelector('.mode.active').dataset.mode; }
+function gatherSources(){
+  const mode = currentMode();
+  const sources = [];
+  const push = (label, text, url) => {
+    if (text && text.trim().length > 30) sources.push({label, text: text.trim(), url: (url||'').trim()});
+  };
+  if (mode === 'resume') {
+    const socialLinks = [
+      val('resumeLinkedinUrl') && `LinkedIn: ${val('resumeLinkedinUrl')}`,
+      val('resumeGithubUrl')   && `GitHub: ${val('resumeGithubUrl')}`,
+      val('resumeTwitterUrl')  && `Twitter/X: ${val('resumeTwitterUrl')}`,
+      val('resumePortfolioUrl') && `Portfolio: ${val('resumePortfolioUrl')}`,
+    ].filter(Boolean).join('\n');
+    const resumeBody = [val('resumeText'), socialLinks].filter(Boolean).join('\n\n--- Social Links ---\n');
+    push('Resume', resumeBody);
+  }
+  else if (mode === 'linkedin') push('LinkedIn', val('linkedinText'), val('linkedinUrl'));
+  else if (mode === 'facebook') push('Facebook', val('facebookText'), val('facebookUrl'));
+  else if (mode === 'combined') {
+    push('Resume', val('comboResumeText'));
+    push('LinkedIn', val('comboLinkedinText'), val('comboLinkedinUrl'));
+    push('Facebook', val('comboFacebookText'), val('comboFacebookUrl'));
+  }
+  return sources;
+}
+function val(id){ return document.getElementById(id).value; }
+function updateSummary(){
+  const s = gatherSources();
+  const el = document.getElementById('inputSummary');
+  if (!s.length) { el.textContent = 'Add at least one source.'; return; }
+  const total = s.reduce((n,x) => n + x.text.length, 0);
+  el.textContent = `${s.length} source${s.length>1?'s':''} — ${total.toLocaleString()} chars`;
+}
+document.addEventListener('input', updateSummary);
+
+/* ---------- Supabase auth ---------- */
+const SUPABASE_URL = 'https://urfcnqjziwoozzbdgwmv.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_6aUIWjUBL5G3DB7HuX5L9g_Bn88bt4X';
+let supabase, currentUser = null, currentProfile = null;
+
+async function waitForSupabaseLib(){
+  for (let i=0; i<40; i++) {
+    if (window._supabaseCreateClient) return;
+    await new Promise(r => setTimeout(r, 100));
+  }
+  throw new Error('Supabase JS failed to load.');
+}
+
+async function initAuth(){
+  await waitForSupabaseLib();
+  supabase = window._supabaseCreateClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  });
+  supabase.auth.onAuthStateChange((_event, session) => {
+    handleSession(session);
+  });
+  const { data: { session } } = await supabase.auth.getSession();
+  handleSession(session);
+}
+
+async function handleSession(session){
+  currentUser = session?.user || null;
+  if (!currentUser) {
+    showView('signInView');
+    hideUserBadge();
+    return;
+  }
+  // Load profile
+  const { data: prof, error } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+  if (error) {
+    document.getElementById('signInError').textContent = 'Profile load error: ' + error.message;
+    return;
+  }
+  currentProfile = prof;
+  showUserBadge(currentUser, prof);
+
+  if (!prof.allowed) {
+    document.getElementById('waitEmail').textContent = currentUser.email;
+    showView('waitlistView');
+  } else {
+    showView('toolView');
+  }
+}
+
+function showUserBadge(u, prof){
+  document.getElementById('userBadge').style.display = 'flex';
+  document.getElementById('userName').textContent = prof.full_name || u.user_metadata?.full_name || u.email;
+  document.getElementById('userEmail').textContent = u.email;
+  const av = document.getElementById('userAvatar');
+  av.src = prof.avatar_url || u.user_metadata?.avatar_url || '';
+  av.style.display = av.src ? 'block' : 'none';
+  document.getElementById('adminToggle').style.display = prof.is_admin ? 'inline-block' : 'none';
+}
+function hideUserBadge(){ document.getElementById('userBadge').style.display = 'none'; }
+
+function showView(id){
+  ['signInView','waitlistView','toolView','adminView'].forEach(v => {
+    document.getElementById(v).style.display = 'none';
+  });
+  const el = document.getElementById(id);
+  el.style.display = (id === 'toolView') ? 'grid' : 'block';
+}
+
+document.getElementById('googleBtn').addEventListener('click', async () => {
+  const err = document.getElementById('signInError');
+  err.textContent = '';
+  if (!supabase) { err.textContent = 'Auth not ready — please wait a moment and try again.'; return; }
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: location.origin + location.pathname }
+  });
+  if (error) err.textContent = error.message;
+});
+
+document.getElementById('signOut').addEventListener('click', async () => {
+  if (!supabase) return;
+  await supabase.auth.signOut();
+});
+
+document.getElementById('waitRefresh').addEventListener('click', async () => {
+  if (!supabase) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  await handleSession(session);
+});
+
+document.getElementById('adminToggle').addEventListener('click', async () => {
+  const visible = document.getElementById('adminView').style.display !== 'none';
+  if (visible) { showView('toolView'); return; }
+  showView('adminView');
+  await loadAdminUsers();
+});
+
+async function loadAdminUsers(){
+  const statusEl = document.getElementById('adminStatus');
+  statusEl.textContent = 'Loading users…';
+  const { data, error } = await supabase.from('profiles').select('*').order('created_at', {ascending:false});
+  if (error) { statusEl.textContent = 'Error: ' + error.message; return; }
+  statusEl.textContent = `${data.length} user${data.length===1?'':'s'}`;
+  const wrap = document.getElementById('adminTableWrap');
+  wrap.innerHTML = '';
+  const table = document.createElement('table');
+  table.className = 'admTable';
+  table.innerHTML = `<thead><tr><th>User</th><th>Email</th><th>Allowed</th><th>Admin</th><th>Created</th></tr></thead><tbody></tbody>`;
+  const tbody = table.querySelector('tbody');
+  data.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${row.avatar_url ? `<img src="${escape(row.avatar_url)}">` : ''}${escape(row.full_name || '—')}</td>
+      <td>${escape(row.email)}</td>
+      <td><label class="switch"><input type="checkbox" ${row.allowed?'checked':''} data-field="allowed" data-id="${row.id}"></label></td>
+      <td><label class="switch"><input type="checkbox" ${row.is_admin?'checked':''} data-field="is_admin" data-id="${row.id}"></label></td>
+      <td class="note">${new Date(row.created_at).toLocaleDateString()}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  wrap.appendChild(table);
+  tbody.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const id = cb.dataset.id; const field = cb.dataset.field; const val = cb.checked;
+      cb.disabled = true;
+      const patch = {}; patch[field] = val;
+      const { error } = await supabase.from('profiles').update(patch).eq('id', id);
+      cb.disabled = false;
+      if (error) { statusEl.textContent = 'Update failed: ' + error.message; cb.checked = !val; }
+      else { statusEl.textContent = `Updated ${field} for user.`; }
+    });
+  });
+}
+
+initAuth().catch(e => {
+  showView('signInView');
+  document.getElementById('signInError').textContent = 'Init error: ' + e.message;
+});
+
+/* ---------- clear ---------- */
+document.getElementById('clearBtn').addEventListener('click', () => {
+  ['resumeText','resumeLinkedinUrl','resumeGithubUrl','resumeTwitterUrl','resumePortfolioUrl',
+   'linkedinText','linkedinUrl','facebookText','facebookUrl',
+   'comboResumeText','comboLinkedinText','comboLinkedinUrl','comboFacebookText','comboFacebookUrl']
+   .forEach(id => document.getElementById(id).value = '');
+  ['resumeFileName','comboResumeName'].forEach(id => document.getElementById(id).textContent = 'No file selected');
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('status').textContent = 'Awaiting input.';
+  updateSummary();
+});
+
+/* ---------- run ---------- */
+document.getElementById('runBtn').addEventListener('click', run);
+
+async function run(){
+  const status = document.getElementById('status');
+  const results = document.getElementById('results');
+  results.classList.remove('visible');
+
+  const sources = gatherSources();
+  if (!sources.length) {
+    status.innerHTML = `<span class="err">Add at least one source (paste text or upload a file).</span>`;
+    return;
+  }
+  if (!currentProfile?.allowed) {
+    status.innerHTML = `<span class="err">Your account isn't approved yet.</span>`;
+    return;
+  }
+
+  const runBtn = document.getElementById('runBtn');
+  runBtn.disabled = true;
+  status.innerHTML = `<span class="spinner"></span>Gathering insight…`;
+
+  try {
+    const data = await callWizard(sources);
+    render(data, sources);
+    status.textContent = `Done. ${sources.length} source${sources.length>1?'s':''} analyzed.`;
+    results.classList.add('visible');
+  } catch (e) {
+    console.error(e);
+    status.innerHTML = `<span class="err">${(e && e.message) || 'Something went wrong.'}</span>`;
+  } finally {
+    runBtn.disabled = false;
+  }
+}
+
+/* ---------- call Edge Function (which calls Anthropic) ---------- */
+let LAST_DATA = null;
+
+async function callWizard(sources){
+  const system = `You are INSIGHT — a deep computational personality-inference engine. You read text the subject has produced or curated (resume, LinkedIn, Facebook) and return a full psychometric report that goes beyond what Crystal Knows or Wonderlic produce. Your outputs are grounded in peer-reviewed frameworks: Big Five / NEO-PI-R (Costa & McCrae) with DeYoung's 10 aspects, HEXACO (Ashton & Lee) with all 24 facets including Honesty-Humility, the Dark Triad (Paulhus & Williams), DISC communication style, Schwartz's 10 basic values, self-determination theory drivers, Bartholomew/Hazan & Shaver attachment styles, and lexical markers from Pennebaker (LIWC, I-talk), Yarkoni's blog-corpus study, and Park/Schwartz/Eichstaedt/Kosinski's Facebook study.
+
+CORE DISCIPLINE:
+- Continuous percentiles (0–100), NOT types. 50 = population median. Always include an 80% confidence interval (ci_low, ci_high).
+- Confidence per construct: "high" | "medium" | "low" — grounded in source type AND amount of signal.
+  * Resume: strong on Conscientiousness (Industriousness), Achievement-Striving, Competence, Order, some Assertiveness. Weak on Openness-proper, Neuroticism, Agreeableness, Honesty-Humility.
+  * LinkedIn: medium on Conscientiousness, Agreeableness (in recs), Honesty-Humility (modesty vs grandiosity), Extraversion (Social Boldness).
+  * Facebook: strong on Extraversion, Neuroticism, Agreeableness, Openness (Feelings/Fantasy). Signal for Honesty-Humility if grandiosity/contempt/status-signaling present.
+- Facet-level reasoning is mandatory when signal supports it. Differentiate DeYoung aspects (Industriousness vs Orderliness, Enthusiasm vs Assertiveness, Compassion vs Politeness, Volatility vs Withdrawal, Intellect vs Openness-proper).
+- CITE SPECIFIC PHRASES — near-exact quotes from the input, not paraphrases. Never invent.
+- HIRING-SIGNAL RIGOR: any percentile above 70 or below 30 MUST be anchored by at least one quote in evidence_map. If no quote supports the extreme estimate, pull it toward the mean and widen the CI. Calibrated modesty beats false precision.
+- When text is thin, widen CIs aggressively. A 50±35 with "low" confidence is correct and useful; a 78±5 with "high" confidence on thin evidence is a hiring liability.
+- Avoid clinical diagnoses, trait-based protected-class inferences (race, gender, religion, age, disability, national origin), and anything that could support adverse-impact concerns. Frame as trait disposition only.
+- For Honesty-Humility, low-H signals (grandiosity, entitlement, contempt toward low-status targets, flattery of high-status targets, inconsistent self-presentation across audiences, rationalizations for rule-breaking, materialism/status signaling) are detectable when present; high-H is partly visible through ABSENCE of those. Flag low-H as "signals worth noting, not conclusions" — never a verdict.
+- Cross-source: converging signal → raise confidence. Divergence (LinkedIn polished vs Facebook raw) is itself diagnostic — call it out.
+- Self-presentation detection: high-stakes texts (LinkedIn, resume) are strategically curated. Flag where the subject appears to be projecting an image and note what you can and cannot infer under that pressure.
+- Be specific, grounded, and useful. No horoscope-generic statements. Every claim must be tied to either a quote or a textual pattern you can name.
+- The caveats field must explicitly state what else a responsible hiring process should gather (e.g. structured behavioral interview, validated work sample, reference conversations) — you are a signal layer, not a decision.
+
+DEPTH REQUIREMENTS:
+- Big Five: estimate each of 30 facets (O1-O6, C1-C6, E1-E6, A1-A6, N1-N6) at facet level where signal allows. Roll up to aspects and domains.
+- HEXACO: estimate each of the 24 facets where signal allows, especially the 4 Honesty-Humility facets (Sincerity, Fairness, Greed Avoidance, Modesty).
+- Dark Triad: estimate Machiavellianism, Narcissism, Psychopathy separately — each with a quote-backed evidence line if any markers appear, or an explicit "no markers surfaced" if not.
+- DISC: D/I/S/C percentages that sum to 100, plus primary and secondary style. This is for communication style, not a categorical stamp.
+- Attachment: secure / anxious-preoccupied / dismissive-avoidant / fearful-avoidant estimate.
+- Values (Schwartz): pick top 3–5 of {Self-Direction, Stimulation, Hedonism, Achievement, Power, Security, Conformity, Tradition, Benevolence, Universalism} with strength and evidence.
+- Motivational drivers: 3–5 of {Autonomy, Mastery, Purpose, Affiliation, Status, Recognition, Security, Curiosity, Service, Competition} with strength and evidence.
+- Communication guide: how to pitch, how to disagree, dos, don'ts — specific and actionable.
+- Motivation guide: what drives, what demotivates, how to recognize them effectively.
+- Derailers under stress: what's likely to go wrong when this person is overloaded, grounded in low-H × high-N combinations, low-Compliance × high-Volatility, etc.
+- Strengths / Blind spots: 3–5 each, specific.
+- Career fit: likely strong-in, likely struggles-in. Tied to trait profile.
+- Cognitive style: analytic-vs-intuitive percentile, verbal fluency qualitative, domain of interest signals.
+- Self-presentation strategy: what impression is the subject trying to create, and what leaks through despite that.
+
+OUTPUT: return ONLY a single JSON object, no markdown, no preamble, no postscript. Exact schema:
+
+{
+  "subject": {"name_guess": "string or null", "role_guess": "string or null"},
+  "executive_summary": "3–5 paragraph synthesis — specific, grounded. What kind of person is this, what are they optimizing for, what's the texture of their inner life and their interpersonal style.",
+  "bigfive": {
+    "openness":          {"percentile": N, "ci_low": N, "ci_high": N, "confidence": "high|medium|low",
+                          "aspects": {"intellect": N, "openness_proper": N},
+                          "facets":  {"fantasy": N, "aesthetics": N, "feelings": N, "actions": N, "ideas": N, "values": N},
+                          "summary": "2–3 sentences tying percentile to evidence"},
+    "conscientiousness": {"percentile": N, "ci_low": N, "ci_high": N, "confidence": "…",
+                          "aspects": {"industriousness": N, "orderliness": N},
+                          "facets":  {"competence": N, "order": N, "dutifulness": N, "achievement_striving": N, "self_discipline": N, "deliberation": N},
+                          "summary": "…"},
+    "extraversion":      {"percentile": N, "ci_low": N, "ci_high": N, "confidence": "…",
+                          "aspects": {"enthusiasm": N, "assertiveness": N},
+                          "facets":  {"warmth": N, "gregariousness": N, "assertiveness": N, "activity": N, "excitement_seeking": N, "positive_emotions": N},
+                          "summary": "…"},
+    "agreeableness":     {"percentile": N, "ci_low": N, "ci_high": N, "confidence": "…",
+                          "aspects": {"compassion": N, "politeness": N},
+                          "facets":  {"trust": N, "straightforwardness": N, "altruism": N, "compliance": N, "modesty": N, "tender_mindedness": N},
+                          "summary": "…"},
+    "neuroticism":       {"percentile": N, "ci_low": N, "ci_high": N, "confidence": "…",
+                          "aspects": {"volatility": N, "withdrawal": N},
+                          "facets":  {"anxiety": N, "angry_hostility": N, "depression": N, "self_consciousness": N, "impulsiveness": N, "vulnerability": N},
+                          "summary": "…"}
+  },
+  "hexaco": {
+    "honesty_humility":  {"percentile": N, "confidence": "…", "facets": {"sincerity": N, "fairness": N, "greed_avoidance": N, "modesty": N}, "notes": "explicit discussion of H-level with evidence; if low-H markers present, cite them"},
+    "emotionality":      {"percentile": N, "confidence": "…", "facets": {"fearfulness": N, "anxiety": N, "dependence": N, "sentimentality": N}, "notes": "…"},
+    "extraversion":      {"percentile": N, "confidence": "…", "facets": {"social_self_esteem": N, "social_boldness": N, "sociability": N, "liveliness": N}, "notes": "…"},
+    "agreeableness":     {"percentile": N, "confidence": "…", "facets": {"forgiveness": N, "gentleness": N, "flexibility": N, "patience": N}, "notes": "…"},
+    "conscientiousness": {"percentile": N, "confidence": "…", "facets": {"organization": N, "diligence": N, "perfectionism": N, "prudence": N}, "notes": "…"},
+    "openness":          {"percentile": N, "confidence": "…", "facets": {"aesthetic_appreciation": N, "inquisitiveness": N, "creativity": N, "unconventionality": N}, "notes": "…"}
+  },
+  "dark_triad": {
+    "machiavellianism": {"percentile": N, "confidence": "…", "evidence": "quote or 'no markers surfaced'"},
+    "narcissism":       {"percentile": N, "confidence": "…", "evidence": "…"},
+    "psychopathy":      {"percentile": N, "confidence": "…", "evidence": "…"}
+  },
+  "disc": {"primary": "D|I|S|C", "secondary": "D|I|S|C", "scores": {"D": N, "I": N, "S": N, "C": N}, "notes": "how this plays in communication"},
+  "attachment": {"primary_style": "secure|anxious-preoccupied|dismissive-avoidant|fearful-avoidant", "confidence": "…", "notes": "short evidence-based explanation"},
+  "values_schwartz": [{"name": "Achievement", "strength": N, "evidence": "quote or pattern"}],
+  "motivational_drivers": [{"name": "Autonomy", "strength": N, "evidence": "…"}],
+  "cognitive_style": {"analytic_vs_intuitive": N, "verbal_fluency": "low|medium|high", "notes": "1–2 sentences"},
+  "communication_guide": {
+    "preferred_style": "string",
+    "dos": ["…","…","…"],
+    "donts": ["…","…","…"],
+    "how_to_pitch": "string",
+    "how_to_disagree": "string"
+  },
+  "motivation_guide": {
+    "what_drives_them": "string",
+    "what_demotivates": "string",
+    "how_to_recognize": "string"
+  },
+  "strengths": ["3–5 specific strengths"],
+  "blind_spots": ["3–5 specific blind spots"],
+  "derailers_under_stress": ["3–5 specific stress patterns"],
+  "career_fit": {"likely_strong_in": ["…"], "likely_struggles_in": ["…"]},
+  "self_presentation_strategy": "What is the subject trying to project, and what slips through despite that. 1–2 paragraphs.",
+  "evidence_map": [
+    {"quote": "near-exact phrase from the text", "source": "Resume|LinkedIn|Facebook", "interpreted_as": "high Industriousness (C4 Achievement Striving) and moderate Assertiveness (E3)", "direction": "elevated|reduced", "confidence": "high|medium|low"}
+  ],
+  "cross_source_notes": "Explicit convergence/divergence discussion, or 'single source — no cross-source comparison' if only one source.",
+  "caveats": "2–3 sentences on what this read is NOT, and what would increase confidence."
+}
+
+Never include anything outside the JSON object.`;
+
+  const sourcesBlock = sources.map(s =>
+    `### ${s.label}${s.url ? ` (${s.url})` : ''}\n\n${s.text}`
+  ).join('\n\n---\n\n');
+
+  const userMsg = sources.length > 1
+    ? `I have ${sources.length} sources for this subject. Read them deeply, take your time, and return the full JSON.\n\n${sourcesBlock}`
+    : `Read this ${sources[0].label} deeply and return the full JSON.\n\n${sourcesBlock}`;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not signed in.');
+
+  const sourceMap = {};
+  let totalChars = 0;
+  sources.forEach(s => { sourceMap[s.label.toLowerCase()] = true; totalChars += s.text.length; });
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/analyze`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'authorization': `Bearer ${session.access_token}`,
+      'apikey': SUPABASE_ANON,
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-7',
+      max_tokens: 16000,
+      thinking: { type: 'enabled', budget_tokens: 8000 },
+      system,
+      messages: [{role:'user', content: userMsg}],
+      log: { sources: sourceMap, source_chars: totalChars }
+    })
+  });
+
+  if (!res.ok) {
+    const t = await res.text();
+    let msg = t; try { const j = JSON.parse(t); if (j.error) msg = j.error; } catch {}
+    throw new Error(`Request failed (${res.status}): ${String(msg).slice(0,500)}`);
+  }
+  const body = await res.json();
+  // thinking + text blocks — find the text one
+  const textBlock = (body.content || []).find(b => b.type === 'text');
+  const text = textBlock?.text || '';
+  const json = extractJson(text);
+  if (!json) throw new Error('Could not parse JSON from model response. Raw start: ' + text.slice(0,400));
+  LAST_DATA = json;
+  return json;
+}
+
+function extractJson(text){
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const raw = fence ? fence[1] : text;
+  const first = raw.indexOf('{');
+  const last = raw.lastIndexOf('}');
+  if (first < 0 || last < 0) return null;
+  try { return JSON.parse(raw.slice(first, last+1)); }
+  catch { return null; }
+}
+
+/* ---------- render ---------- */
+const BF_ORDER = [
+  ['openness','Openness', ['intellect','openness_proper'], ['fantasy','aesthetics','feelings','actions','ideas','values']],
+  ['conscientiousness','Conscientiousness', ['industriousness','orderliness'], ['competence','order','dutifulness','achievement_striving','self_discipline','deliberation']],
+  ['extraversion','Extraversion', ['enthusiasm','assertiveness'], ['warmth','gregariousness','assertiveness','activity','excitement_seeking','positive_emotions']],
+  ['agreeableness','Agreeableness', ['compassion','politeness'], ['trust','straightforwardness','altruism','compliance','modesty','tender_mindedness']],
+  ['neuroticism','Neuroticism', ['volatility','withdrawal'], ['anxiety','angry_hostility','depression','self_consciousness','impulsiveness','vulnerability']],
+];
+const HEXACO_ORDER = [
+  ['honesty_humility','Honesty-Humility', ['sincerity','fairness','greed_avoidance','modesty']],
+  ['emotionality','Emotionality', ['fearfulness','anxiety','dependence','sentimentality']],
+  ['extraversion','eXtraversion', ['social_self_esteem','social_boldness','sociability','liveliness']],
+  ['agreeableness','Agreeableness', ['forgiveness','gentleness','flexibility','patience']],
+  ['conscientiousness','Conscientiousness', ['organization','diligence','perfectionism','prudence']],
+  ['openness','Openness', ['aesthetic_appreciation','inquisitiveness','creativity','unconventionality']],
+];
+
+function confClass(c){
+  const v = (c||'medium').toLowerCase();
+  return v.startsWith('h') ? 'hi' : v.startsWith('l') ? 'lo' : 'md';
+}
+function titleize(k){ return String(k||'').replace(/_/g,' ').replace(/\b\w/g, m => m.toUpperCase()); }
+
+function renderBar(pct, ciLow, ciHigh, size){
+  const p = clamp(Number(pct));
+  let ci = '';
+  if (ciLow != null && ciHigh != null) {
+    const lo = clamp(ciLow), hi = clamp(ciHigh);
+    ci = `<span class="ci" style="left:${lo}%;width:${Math.max(0,hi-lo)}%"></span>`;
+  }
+  return `<div class="bar ${size==='sm'?'sm':''}"><span style="width:${p}%"></span>${ci}</div>`;
+}
+function clamp(n){ n = Number(n); if (!isFinite(n)) return 50; return Math.max(0, Math.min(100, n)); }
+
+function render(data){
+  // Executive summary
+  document.getElementById('narrative').textContent = data.executive_summary || data.narrative || '—';
+
+  // Big Five — domain row + aspects + facets as collapsible
+  const bfEl = document.getElementById('bigfive');
+  bfEl.innerHTML = '';
+  BF_ORDER.forEach(([k,label,aspects,facets]) => {
+    const t = data.bigfive?.[k]; if (!t) return;
+    const pct = clamp(t.percentile);
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div class="trait">
+        <div class="traitName">${label}<span class="conf ${confClass(t.confidence)}">${escape((t.confidence||'medium').toUpperCase())}</span></div>
+        ${renderBar(pct, t.ci_low, t.ci_high)}
+        <div class="pct">${Math.round(pct)}</div>
+      </div>
+      <div class="note" style="margin:2px 0 8px">${escape(t.summary || '')}</div>
+      <details>
+        <summary>Aspects &amp; facets</summary>
+        <div style="margin-top:8px">
+          <div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--accent2);margin-bottom:4px">Aspects</div>
+          ${aspects.map(a => subTrait(titleize(a), t.aspects?.[a])).join('')}
+          <div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--accent2);margin:10px 0 4px">Facets</div>
+          ${facets.map(f => subTrait(titleize(f), t.facets?.[f])).join('')}
+        </div>
+      </details>
+    `;
+    bfEl.appendChild(wrap);
+  });
+
+  // HEXACO
+  const hxEl = document.getElementById('hexaco');
+  hxEl.innerHTML = '';
+  HEXACO_ORDER.forEach(([k,label,facets]) => {
+    const t = data.hexaco?.[k]; if (!t) return;
+    const pct = clamp(t.percentile);
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div class="trait">
+        <div class="traitName">${label}<span class="conf ${confClass(t.confidence)}">${escape((t.confidence||'medium').toUpperCase())}</span></div>
+        ${renderBar(pct)}
+        <div class="pct">${Math.round(pct)}</div>
+      </div>
+      <div class="note" style="margin:2px 0 8px">${escape(t.notes || '')}</div>
+      <details>
+        <summary>Facets</summary>
+        <div style="margin-top:8px">
+          ${facets.map(f => subTrait(titleize(f), t.facets?.[f])).join('')}
+        </div>
+      </details>
+    `;
+    hxEl.appendChild(wrap);
+  });
+
+  // Dark Triad
+  const dtEl = document.getElementById('darkTriad');
+  dtEl.innerHTML = '';
+  const dtRows = [
+    ['machiavellianism','Machiavellianism'],
+    ['narcissism','Narcissism'],
+    ['psychopathy','Psychopathy'],
+  ];
+  dtRows.forEach(([k,label]) => {
+    const t = data.dark_triad?.[k]; if (!t) return;
+    const pct = clamp(t.percentile);
+    const row = document.createElement('div');
+    row.innerHTML = `
+      <div class="trait">
+        <div class="traitName">${label}<span class="conf ${confClass(t.confidence)}">${escape((t.confidence||'medium').toUpperCase())}</span></div>
+        ${renderBar(pct)}
+        <div class="pct">${Math.round(pct)}</div>
+      </div>
+      <div class="note" style="margin:0 0 8px">${escape(t.evidence || '')}</div>
+    `;
+    dtEl.appendChild(row);
+  });
+
+  // DISC
+  const discEl = document.getElementById('disc');
+  const d = data.disc || {};
+  const scores = d.scores || {};
+  const labels = {D:'Dominance', I:'Influence', S:'Steadiness', C:'Conscientiousness'};
+  discEl.innerHTML = `
+    <div class="disc">
+      ${['D','I','S','C'].map(k => `
+        <div class="tile ${d.primary===k?'primary':''}">
+          <b>${Math.round(scores[k]||0)}</b>
+          <div class="note" style="font-weight:600;color:var(--ink)">${k}</div>
+          <div class="note">${labels[k]}</div>
+        </div>`).join('')}
+    </div>
+    <div class="note" style="margin-top:10px"><b>Primary:</b> ${escape(d.primary||'—')} · <b>Secondary:</b> ${escape(d.secondary||'—')}</div>
+    <div class="narrative" style="margin-top:6px">${escape(d.notes||'')}</div>
+  `;
+
+  // Attachment
+  const a = data.attachment || {};
+  document.getElementById('attachment').innerHTML = `
+    <div class="kv">
+      <dt>Style</dt><dd><b>${escape(a.primary_style||'—')}</b> <span class="conf ${confClass(a.confidence)}">${escape((a.confidence||'medium').toUpperCase())}</span></dd>
+    </div>
+    <div class="narrative" style="margin-top:6px">${escape(a.notes||'')}</div>
+  `;
+
+  // Values + drivers
+  renderWeighted('values', data.values_schwartz);
+  renderWeighted('drivers', data.motivational_drivers);
+
+  // Strengths / blindspots / derailers
+  renderList('strengths', data.strengths);
+  renderList('blindspots', data.blind_spots);
+  renderList('derailers', data.derailers_under_stress);
+
+  // Communication guide
+  const c = data.communication_guide || {};
+  document.getElementById('commGuide').innerHTML = `
+    <div class="narrative" style="margin-bottom:8px"><b>Preferred style:</b> ${escape(c.preferred_style||'—')}</div>
+    <div class="grid2">
+      <div><div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--ok);margin-bottom:4px">Do</div><ul class="list">${(c.dos||[]).map(x=>`<li>${escape(x)}</li>`).join('')}</ul></div>
+      <div><div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--warn);margin-bottom:4px">Don't</div><ul class="list">${(c.donts||[]).map(x=>`<li>${escape(x)}</li>`).join('')}</ul></div>
+    </div>
+    <div class="narrative" style="margin-top:10px"><b>How to pitch:</b> ${escape(c.how_to_pitch||'—')}</div>
+    <div class="narrative" style="margin-top:6px"><b>How to disagree:</b> ${escape(c.how_to_disagree||'—')}</div>
+  `;
+
+  // Motivation guide
+  const m = data.motivation_guide || {};
+  document.getElementById('motivGuide').innerHTML = `
+    <div class="narrative"><b>What drives them:</b> ${escape(m.what_drives_them||'—')}</div>
+    <div class="narrative" style="margin-top:6px"><b>What demotivates:</b> ${escape(m.what_demotivates||'—')}</div>
+    <div class="narrative" style="margin-top:6px"><b>How to recognize them well:</b> ${escape(m.how_to_recognize||'—')}</div>
+  `;
+
+  // Career fit
+  const cf = data.career_fit || {};
+  document.getElementById('careerFit').innerHTML = `
+    <div class="grid2">
+      <div><div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--ok);margin-bottom:4px">Likely strong in</div><ul class="list">${(cf.likely_strong_in||[]).map(x=>`<li>${escape(x)}</li>`).join('')}</ul></div>
+      <div><div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--warn);margin-bottom:4px">Likely struggles in</div><ul class="list">${(cf.likely_struggles_in||[]).map(x=>`<li>${escape(x)}</li>`).join('')}</ul></div>
+    </div>
+  `;
+
+  // Cognitive
+  const cg = data.cognitive_style || {};
+  document.getElementById('cognitive').innerHTML = `
+    <div class="trait">
+      <div class="traitName">Analytic ↔ Intuitive</div>
+      ${renderBar(cg.analytic_vs_intuitive)}
+      <div class="pct">${Math.round(clamp(cg.analytic_vs_intuitive))}</div>
+    </div>
+    <div class="note" style="margin:2px 0 8px">0 = highly intuitive · 100 = highly analytic. Verbal fluency: <b>${escape(cg.verbal_fluency||'—')}</b></div>
+    <div class="narrative">${escape(cg.notes||'')}</div>
+  `;
+
+  // Self-presentation + cross-source + caveats
+  document.getElementById('selfPres').textContent = data.self_presentation_strategy || '—';
+  document.getElementById('crossSrc').textContent = data.cross_source_notes || '—';
+  document.getElementById('caveats').textContent = data.caveats || '—';
+
+  // Evidence map
+  const evEl = document.getElementById('evidence');
+  evEl.innerHTML = '';
+  (data.evidence_map || []).forEach(e => {
+    const q = document.createElement('div');
+    q.className = 'quote';
+    q.innerHTML = `
+      <span class="src">${escape(e.source||'')} · ${escape(e.direction||'')} · ${escape(e.interpreted_as||'')}</span>
+      "${escape(e.quote||'')}"
+    `;
+    evEl.appendChild(q);
+  });
+  if (!(data.evidence_map||[]).length) evEl.innerHTML = '<div class="note">No quotes surfaced.</div>';
+}
+
+function subTrait(label, val){
+  const pct = clamp(val);
+  return `
+    <div class="trait sub">
+      <div class="traitName sub">${escape(label)}</div>
+      ${renderBar(pct, null, null, 'sm')}
+      <div class="pct sub">${Math.round(pct)}</div>
+    </div>`;
+}
+function renderList(id, items){
+  const el = document.getElementById(id);
+  el.innerHTML = '';
+  (items||[]).forEach(x => {
+    const li = document.createElement('li');
+    li.textContent = x;
+    el.appendChild(li);
+  });
+  if (!(items||[]).length) el.innerHTML = '<li class="note" style="background:transparent;border:none">None surfaced.</li>';
+}
+function renderWeighted(id, items){
+  const el = document.getElementById(id);
+  el.innerHTML = '';
+  (items||[]).forEach(x => {
+    const pct = clamp(x.strength);
+    const d = document.createElement('div');
+    d.className = 'trait sub';
+    d.innerHTML = `
+      <div class="traitName sub" style="padding-left:0"><b>${escape(x.name||'')}</b></div>
+      ${renderBar(pct, null, null, 'sm')}
+      <div class="pct sub">${Math.round(pct)}</div>
+      <div></div>
+      <div class="note" style="grid-column:2/4">${escape(x.evidence||'')}</div>
+    `;
+    d.style.gridTemplateColumns = '140px 1fr 48px';
+    d.style.rowGap = '4px';
+    el.appendChild(d);
+  });
+  if (!(items||[]).length) el.innerHTML = '<div class="note">None surfaced.</div>';
+}
+
+function escape(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- downloads ---------- */
+document.getElementById('dlJson').addEventListener('click', () => {
+  if (!LAST_DATA) return;
+  downloadFile('insight-report.json', 'application/json', JSON.stringify(LAST_DATA, null, 2));
+});
+document.getElementById('dlMd').addEventListener('click', () => {
+  if (!LAST_DATA) return;
+  downloadFile('insight-report.md', 'text/markdown', toMarkdown(LAST_DATA));
+});
+document.getElementById('dlHtml').addEventListener('click', () => {
+  if (!LAST_DATA) return;
+  downloadFile('insight-report.html', 'text/html', toStandaloneHtml(LAST_DATA));
+});
+function downloadFile(name, mime, content){
+  const blob = new Blob([content], {type: mime});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function toMarkdown(d){
+  const lines = [];
+  lines.push('# Insight — Personality Report');
+  lines.push('');
+  lines.push(`*Generated ${new Date().toISOString()}*`);
+  lines.push('');
+  if (d.subject) lines.push(`**Subject:** ${d.subject.name_guess||'—'} · ${d.subject.role_guess||'—'}`);
+  lines.push('');
+  lines.push('## Executive Summary');
+  lines.push(d.executive_summary || '—');
+  lines.push('');
+  lines.push('## Big Five (OCEAN)');
+  BF_ORDER.forEach(([k,label,aspects,facets]) => {
+    const t = d.bigfive?.[k]; if (!t) return;
+    lines.push(`### ${label} — ${Math.round(t.percentile||50)} (${(t.confidence||'med')})`);
+    if (t.ci_low!=null) lines.push(`*80% CI: ${t.ci_low}–${t.ci_high}*`);
+    lines.push(t.summary||'');
+    lines.push('');
+    lines.push('**Aspects:** ' + aspects.map(a => `${titleize(a)} ${Math.round(t.aspects?.[a]||0)}`).join(' · '));
+    lines.push('');
+    lines.push('**Facets:** ' + facets.map(f => `${titleize(f)} ${Math.round(t.facets?.[f]||0)}`).join(' · '));
+    lines.push('');
+  });
+  lines.push('## HEXACO');
+  HEXACO_ORDER.forEach(([k,label,facets]) => {
+    const t = d.hexaco?.[k]; if (!t) return;
+    lines.push(`### ${label} — ${Math.round(t.percentile||50)} (${(t.confidence||'med')})`);
+    lines.push(t.notes||'');
+    lines.push('');
+    lines.push('**Facets:** ' + facets.map(f => `${titleize(f)} ${Math.round(t.facets?.[f]||0)}`).join(' · '));
+    lines.push('');
+  });
+  lines.push('## Dark Triad');
+  ['machiavellianism','narcissism','psychopathy'].forEach(k => {
+    const t = d.dark_triad?.[k]; if (!t) return;
+    lines.push(`- **${titleize(k)}:** ${Math.round(t.percentile||0)} (${t.confidence||'med'}) — ${t.evidence||''}`);
+  });
+  lines.push('');
+  if (d.disc) {
+    lines.push('## DISC');
+    lines.push(`Primary: **${d.disc.primary}**, Secondary: **${d.disc.secondary}**`);
+    lines.push(`Scores: D ${d.disc.scores?.D||0} · I ${d.disc.scores?.I||0} · S ${d.disc.scores?.S||0} · C ${d.disc.scores?.C||0}`);
+    lines.push(d.disc.notes||''); lines.push('');
+  }
+  if (d.attachment) {
+    lines.push(`## Attachment — ${d.attachment.primary_style} (${d.attachment.confidence||'med'})`);
+    lines.push(d.attachment.notes||''); lines.push('');
+  }
+  if (d.values_schwartz?.length) {
+    lines.push('## Values (Schwartz)');
+    d.values_schwartz.forEach(v => lines.push(`- **${v.name}** — ${Math.round(v.strength||0)} — ${v.evidence||''}`));
+    lines.push('');
+  }
+  if (d.motivational_drivers?.length) {
+    lines.push('## Motivational Drivers');
+    d.motivational_drivers.forEach(v => lines.push(`- **${v.name}** — ${Math.round(v.strength||0)} — ${v.evidence||''}`));
+    lines.push('');
+  }
+  if (d.strengths?.length) { lines.push('## Strengths'); d.strengths.forEach(x=>lines.push(`- ${x}`)); lines.push(''); }
+  if (d.blind_spots?.length) { lines.push('## Blind Spots'); d.blind_spots.forEach(x=>lines.push(`- ${x}`)); lines.push(''); }
+  if (d.derailers_under_stress?.length) { lines.push('## Derailers Under Stress'); d.derailers_under_stress.forEach(x=>lines.push(`- ${x}`)); lines.push(''); }
+  if (d.communication_guide) {
+    lines.push('## Communication Guide');
+    lines.push(`**Preferred style:** ${d.communication_guide.preferred_style||''}`);
+    lines.push(`**Do:** ${(d.communication_guide.dos||[]).join('; ')}`);
+    lines.push(`**Don't:** ${(d.communication_guide.donts||[]).join('; ')}`);
+    lines.push(`**Pitch:** ${d.communication_guide.how_to_pitch||''}`);
+    lines.push(`**Disagree:** ${d.communication_guide.how_to_disagree||''}`);
+    lines.push('');
+  }
+  if (d.motivation_guide) {
+    lines.push('## Motivation Guide');
+    lines.push(`**Drives:** ${d.motivation_guide.what_drives_them||''}`);
+    lines.push(`**Demotivates:** ${d.motivation_guide.what_demotivates||''}`);
+    lines.push(`**Recognize:** ${d.motivation_guide.how_to_recognize||''}`);
+    lines.push('');
+  }
+  if (d.career_fit) {
+    lines.push('## Career Fit');
+    lines.push('**Likely strong in:** ' + (d.career_fit.likely_strong_in||[]).join('; '));
+    lines.push('**Likely struggles in:** ' + (d.career_fit.likely_struggles_in||[]).join('; '));
+    lines.push('');
+  }
+  if (d.cognitive_style) {
+    lines.push('## Cognitive Style');
+    lines.push(`Analytic ↔ Intuitive: ${Math.round(d.cognitive_style.analytic_vs_intuitive||50)} · Verbal fluency: ${d.cognitive_style.verbal_fluency||''}`);
+    lines.push(d.cognitive_style.notes||''); lines.push('');
+  }
+  if (d.self_presentation_strategy) { lines.push('## Self-Presentation Strategy'); lines.push(d.self_presentation_strategy); lines.push(''); }
+  if (d.evidence_map?.length) {
+    lines.push('## Evidence Map');
+    d.evidence_map.forEach(e => lines.push(`- *${e.source||''}* [${e.direction||''} · ${e.interpreted_as||''}] — "${e.quote||''}"`));
+    lines.push('');
+  }
+  if (d.cross_source_notes) { lines.push('## Cross-Source Notes'); lines.push(d.cross_source_notes); lines.push(''); }
+  if (d.caveats) { lines.push('## Caveats'); lines.push(d.caveats); lines.push(''); }
+  return lines.join('\n');
+}
+
+function toStandaloneHtml(d){
+  const md = toMarkdown(d);
+  const body = md
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^### (.*)$/gm,'<h3>$1</h3>')
+    .replace(/^## (.*)$/gm,'<h2>$1</h2>')
+    .replace(/^# (.*)$/gm,'<h1>$1</h1>')
+    .replace(/^\- (.*)$/gm,'<li>$1</li>')
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,'<em>$1</em>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/(<li>.*?<\/li>)(\s*<li>)/gs,'$1$2');
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Insight Report</title>
+<style>
+body{font:15px/1.6 ui-sans-serif,system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:760px;margin:40px auto;padding:0 24px;color:#1a1238;background:#fbf9ff}
+h1{font-size:32px;margin:0 0 4px;color:#5b21b6}
+h2{font-size:22px;margin:30px 0 8px;color:#6d28d9;border-bottom:1px solid #e9d5ff;padding-bottom:4px}
+h3{font-size:17px;margin:18px 0 6px;color:#7c3aed}
+p{margin:8px 0}
+li{margin:4px 0}
+em{color:#6b7280}
+strong{color:#4c1d95}
+</style>
+</head><body><p>${body}</p></body></html>`;
+}
+
+updateSummary();
+</script>
+</body>
+</html>
