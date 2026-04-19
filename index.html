@@ -203,8 +203,16 @@
   <!-- SIGN-IN VIEW -->
   <section class="card view" id="signInView" style="max-width:540px;margin:0 auto">
     <h2>Sign in to continue</h2>
-    <div class="hint">Insight is gated. Sign in with Google — a member of the team will approve your access.</div>
-    <button class="run" id="googleBtn" type="button" style="margin-top:10px">Continue with Google</button>
+    <div class="hint">Insight is gated. Enter your email — we'll send you a magic link. First-time users are added to a waitlist for admin approval.</div>
+    <div id="emailSignInArea">
+      <label for="signInEmail" style="margin-top:14px;display:block">Email</label>
+      <input type="email" id="signInEmail" placeholder="you@example.com" autocomplete="email" />
+      <button class="run" id="sendMagicBtn" type="button" style="margin-top:12px">Send magic link</button>
+    </div>
+    <div id="emailSentArea" style="display:none;margin-top:14px">
+      <div class="hint" style="margin-top:0">Check your inbox — we sent a sign-in link to <b id="sentEmailAddr"></b>. Click it to continue. (May take a minute; check spam too.)</div>
+      <button class="clear" id="resendMagicBtn" type="button" style="margin-top:10px">Use a different email</button>
+    </div>
     <div class="note" id="signInError" style="margin-top:12px;color:var(--warn)"></div>
   </section>
 
@@ -627,15 +635,48 @@ function showView(id){
   el.style.display = (id === 'toolView') ? 'grid' : 'block';
 }
 
-document.getElementById('googleBtn').addEventListener('click', async () => {
+document.getElementById('sendMagicBtn').addEventListener('click', async () => {
   const err = document.getElementById('signInError');
   err.textContent = '';
   if (!supabase) { err.textContent = 'Auth not ready — please wait a moment and try again.'; return; }
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: location.origin + location.pathname }
-  });
-  if (error) err.textContent = error.message;
+  const emailInput = document.getElementById('signInEmail');
+  const email = (emailInput.value || '').trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    err.textContent = 'Enter a valid email address.';
+    return;
+  }
+  const btn = document.getElementById('sendMagicBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: location.origin + location.pathname }
+    });
+    if (error) {
+      err.textContent = error.message;
+    } else {
+      document.getElementById('sentEmailAddr').textContent = email;
+      document.getElementById('emailSignInArea').style.display = 'none';
+      document.getElementById('emailSentArea').style.display = 'block';
+    }
+  } catch (e) {
+    err.textContent = (e && e.message) || String(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
+
+document.getElementById('resendMagicBtn').addEventListener('click', () => {
+  document.getElementById('emailSignInArea').style.display = 'block';
+  document.getElementById('emailSentArea').style.display = 'none';
+  document.getElementById('signInError').textContent = '';
+});
+
+document.getElementById('signInEmail').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('sendMagicBtn').click();
 });
 
 document.getElementById('signOut').addEventListener('click', async () => {
