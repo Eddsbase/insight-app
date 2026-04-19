@@ -1116,14 +1116,97 @@ Never include anything outside the JSON object.`;
     } catch {}
     throw new Error(`Request failed (${res.status}): ${String(msg).slice(0,600)}`);
   }
-  const body = await res.json();
-  // thinking + text blocks — find the text one
-  const textBlock = (body.content || []).find(b => b.type === 'text');
-  const text = textBlock?.text || '';
-  const json = extractJson(text);
-  if (!json) throw new Error('Could not parse JSON from model response. Raw start: ' + text.slice(0,400));
-  LAST_DATA = json;
-  return json;
+
+  // Consume SSE stream. Show progress in the status line as tools are used
+  // and text is generated. Collect the final text block for JSON parsing.
+  const statusEl = document.getElementById('status');
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('text/event-stream')) {
+    // Fallback: non-streaming response (shouldn't happen, but handle it)
+    const body = await res.json();
+    const tb = (body.content || []).find(b => b.type === 'text');
+    const text = tb?.text || '';
+    const parsed = extractJson(text);
+    if (!parsed) throw new Error('Could not parse JSON from model response. Raw start: ' + text.slice(0,400));
+    LAST_DATA = parsed;
+    return parsed;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  let collectedText = '';
+  const currentBlocks = {}; // index -> partial block info
+  let tickCount = 0;
+  const setStatus = (msg, spin=true) => {
+    statusEl.innerHTML = (spin ? '<span class="spinner"></span>' : '') + escape(msg);
+  };
+  setStatus('Gathering evidence…');
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const parts = buf.split('\n\n');
+    buf = parts.pop() || '';
+    for (const part of parts) {
+      let dataLine = '';
+      for (const line of part.split('\n')) {
+        if (line.startsWith('data: ')) dataLine += line.slice(6);
+      }
+      if (!dataLine) continue;
+      let ev;
+      try { ev = JSON.parse(dataLine); } catch { continue; }
+
+      if (ev.type === 'content_block_start') {
+        const blk = ev.content_block || {};
+        currentBlocks[ev.index] = { type: blk.type, name: blk.name, input: blk.input || {}, inputJson: '' };
+        if (blk.type === 'server_tool_use') {
+          if (blk.name === 'web_search') setStatus('Searching the web…');
+          else if (blk.name === 'web_fetch') setStatus('Fetching source…');
+        } else if (blk.type === 'web_search_tool_result') {
+          setStatus('Reading search results…');
+        } else if (blk.type === 'web_fetch_tool_result') {
+          setStatus('Parsing fetched page…');
+        } else if (blk.type === 'thinking') {
+          setStatus('Thinking…');
+        } else if (blk.type === 'text') {
+          setStatus('Writing the analysis…');
+        }
+      } else if (ev.type === 'content_block_delta') {
+        const d = ev.delta || {};
+        const cur = currentBlocks[ev.index] || {};
+        if (d.type === 'text_delta') {
+          collectedText += d.text || '';
+          tickCount++;
+          // Occasional status updates so it feels alive
+          if (tickCount % 40 === 0) setStatus('Writing the analysis…');
+        } else if (d.type === 'input_json_delta') {
+          cur.inputJson = (cur.inputJson || '') + (d.partial_json || '');
+          if (cur.type === 'server_tool_use' && cur.name === 'web_search') {
+            const m = cur.inputJson.match(/"query"\s*:\s*"([^"]*)/);
+            if (m && m[1]) setStatus('Searching: ' + m[1].slice(0,80) + '…');
+          } else if (cur.type === 'server_tool_use' && cur.name === 'web_fetch') {
+            const m = cur.inputJson.match(/"url"\s*:\s*"([^"]*)/);
+            if (m && m[1]) setStatus('Fetching: ' + m[1].replace(/^https?:\/\//,'').slice(0,80) + '…');
+          }
+        }
+      } else if (ev.type === 'message_delta') {
+        if (ev.delta?.stop_reason) {
+          setStatus('Finalizing…');
+        }
+      } else if (ev.type === 'message_stop') {
+        // done
+      } else if (ev.type === 'error') {
+        throw new Error('Stream error: ' + (ev.error?.message || JSON.stringify(ev.error || ev)));
+      }
+    }
+  }
+
+  const parsed = extractJson(collectedText);
+  if (!parsed) throw new Error('Could not parse JSON from model response. Raw start: ' + collectedText.slice(0,400));
+  LAST_DATA = parsed;
+  return parsed;
 }
 
 function extractJson(text){
