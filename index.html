@@ -1039,7 +1039,7 @@ Never include anything outside the JSON object.`;
     body: JSON.stringify({
       model: 'claude-opus-4-7',
       max_tokens: 16000,
-      thinking: { type: 'enabled', budget_tokens: 8000 },
+      thinking: { type: 'adaptive' },
       system,
       messages: [{role:'user', content: userMsg}],
       log: { sources: sourceMap, source_chars: totalChars }
@@ -1048,8 +1048,20 @@ Never include anything outside the JSON object.`;
 
   if (!res.ok) {
     const t = await res.text();
-    let msg = t; try { const j = JSON.parse(t); if (j.error) msg = j.error; } catch {}
-    throw new Error(`Request failed (${res.status}): ${String(msg).slice(0,500)}`);
+    let msg = t;
+    try {
+      const j = JSON.parse(t);
+      if (j.error) {
+        if (typeof j.error === 'string') msg = j.error;
+        else if (j.error.message) msg = j.error.message;
+        else msg = JSON.stringify(j.error);
+      } else if (j.message) {
+        msg = j.message;
+      } else {
+        msg = JSON.stringify(j);
+      }
+    } catch {}
+    throw new Error(`Request failed (${res.status}): ${String(msg).slice(0,600)}`);
   }
   const body = await res.json();
   // thinking + text blocks — find the text one
