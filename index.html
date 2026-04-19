@@ -525,23 +525,67 @@ async function readFileAsText(file){
     return await file.text();
   }
   if (ext === 'pdf') {
-    // naive fallback: try reading as text; most PDFs won't decode cleanly this way
-    const buf = await file.arrayBuffer();
-    const str = new TextDecoder('utf-8', {fatal:false}).decode(buf);
-    // strip binary blobs, keep runs of ASCII
-    const ascii = str.replace(/[^\x09\x0a\x0d\x20-\x7e]+/g,' ').replace(/\s+/g,' ').trim();
-    if (ascii.length < 200) throw new Error('PDF text extraction weak — please paste the resume instead');
-    return ascii;
+    return await extractPdfText(file);
   }
-  if (ext === 'docx' || ext === 'doc') {
-    const buf = await file.arrayBuffer();
-    // docx is a zip of xml — look for word/document.xml inside
-    const str = new TextDecoder('utf-8',{fatal:false}).decode(buf);
-    const ascii = str.replace(/[^\x09\x0a\x0d\x20-\x7e]+/g,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-    if (ascii.length < 200) throw new Error('DOCX text extraction weak — please paste instead');
-    return ascii;
+  if (ext === 'docx') {
+    return await extractDocxText(file);
+  }
+  if (ext === 'doc') {
+    throw new Error('Legacy .doc format not supported — save as .docx or paste the text directly.');
   }
   return await file.text();
+}
+
+async function extractPdfText(file){
+  if (!window.__pdfjsLib){
+    const mod = await import('https://esm.sh/pdfjs-dist@4.10.38/build/pdf.mjs');
+    mod.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.10.38/build/pdf.worker.mjs';
+    window.__pdfjsLib = mod;
+  }
+  const pdfjsLib = window.__pdfjsLib;
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  const parts = [];
+  for (let i = 1; i <= pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    let lastY = null;
+    let line = [];
+    const lines = [];
+    for (const item of content.items){
+      const y = item.transform ? item.transform[5] : null;
+      if (lastY !== null && y !== null && Math.abs(y - lastY) > 2){
+        if (line.length) lines.push(line.join(' '));
+        line = [];
+      }
+      if (item.str) line.push(item.str);
+      lastY = y;
+    }
+    if (line.length) lines.push(line.join(' '));
+    parts.push(lines.join('\n'));
+  }
+  const text = parts.join('\n\n').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+  if (text.length < 50) throw new Error('PDF contained no extractable text (image-only PDF?). Paste the resume text instead.');
+  return text;
+}
+
+async function extractDocxText(file){
+  if (!window.__mammoth){
+    // mammoth.browser.js exposes window.mammoth when loaded as a <script>
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Failed to load DOCX parser'));
+      document.head.appendChild(s);
+    });
+    window.__mammoth = window.mammoth;
+  }
+  const buf = await file.arrayBuffer();
+  const result = await window.__mammoth.extractRawText({arrayBuffer: buf});
+  const text = (result.value || '').trim();
+  if (text.length < 50) throw new Error('DOCX contained no extractable text. Paste the resume text instead.');
+  return text;
 }
 
 /* ---------- input summary ---------- */
@@ -909,6 +953,15 @@ let LAST_DATA = null;
 
 async function callWizard(sources){
   const system = `You are INSIGHT — a deep computational personality-inference engine. You read text the subject has produced or curated (resume, LinkedIn, Facebook) and return a full psychometric report that goes beyond what Crystal Knows or Wonderlic produce. Your outputs are grounded in peer-reviewed frameworks: Big Five / NEO-PI-R (Costa & McCrae) with DeYoung's 10 aspects, HEXACO (Ashton & Lee) with all 24 facets including Honesty-Humility, the Dark Triad (Paulhus & Williams), DISC communication style, Schwartz's 10 basic values, self-determination theory drivers, Bartholomew/Hazan & Shaver attachment styles, and lexical markers from Pennebaker (LIWC, I-talk), Yarkoni's blog-corpus study, and Park/Schwartz/Eichstaedt/Kosinski's Facebook study.
+
+TOOLS — you have web_search and web_fetch available. USE THEM AGGRESSIVELY to enrich thin inputs:
+- If a LinkedIn URL is provided, web_fetch the profile; if blocked, web_search for the person (name + company + role keywords) to surface their public history, talks, articles, podcast interviews, bylined work, press mentions, and prior roles.
+- If a GitHub URL is provided, web_fetch it (public bio, pinned repos, README content) and cite language/project patterns.
+- If a Twitter/X or portfolio URL is provided, web_fetch it for tone, cadence, topics.
+- If the inputs contain a name plus a company or role, run 2-4 targeted searches to find the subject's public writing, talks, and press. Prefer first-person sources (their own posts, interviews where they speak, bylined pieces) over third-party summaries.
+- When the resume is thin, short, or extraction-only-metadata, web_search and web_fetch are REQUIRED — do not default all traits to 50. Enrich first, THEN reason.
+- Every quote you cite in evidence_map must come from the actual source (provided text OR the web-fetched content). Do not invent quotes. When a quote is from the web, include the URL in the `source` field (e.g. "LinkedIn · https://linkedin.com/in/eddyoung"). If the fetched page was sparse or access-blocked, say so in caveats and proceed with what you have.
+- Budget: up to ~8 web_search + 8 web_fetch calls per run. Spend them; don't be stingy.
 
 CORE DISCIPLINE:
 - Continuous percentiles (0–100), NOT types. 50 = population median. Always include an 80% confidence interval (ci_low, ci_high).
