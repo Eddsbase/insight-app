@@ -1911,18 +1911,50 @@ function toPrintableHtml(d, opts){
   const bfDims = BF.map(([k,l]) => ({ label: l.slice(0,4), pct: clamp(d.bigfive?.[k]?.percentile) }));
   const hxDims = HX.map(([k,l]) => ({ label: l.length>10 ? l.slice(0,3) : l.slice(0,4), pct: clamp(d.hexaco?.[k]?.percentile) }));
 
-  // Cover stat strip \u2014 pick 4 headline scores
+  // Cover stat strip \u2014 four uniformly structured headline tiles
   const topDom = BF.map(([k,l]) => ({ label: l, pct: clamp(d.bigfive?.[k]?.percentile) })).sort((a,b) => b.pct-a.pct);
+  const discP = d.disc?.primary;
+  const discScore = (discP && d.disc?.scores) ? Math.round(d.disc.scores[discP]||0) : null;
   const coverStats = [
-    { label: 'Big Five strongest', value: topDom[0] ? topDom[0].label : '\u2014', score: topDom[0] ? Math.round(topDom[0].pct) : null },
-    { label: 'Big Five lowest', value: topDom[topDom.length-1] ? topDom[topDom.length-1].label : '\u2014', score: topDom[topDom.length-1] ? Math.round(topDom[topDom.length-1].pct) : null },
-    { label: 'DISC primary', value: (d.disc?.primary || '\u2014'), score: d.disc?.scores ? Math.round(d.disc.scores[d.disc.primary]||0) : null },
-    { label: 'Attachment', value: (d.attachment?.primary_style || '\u2014').replace(/_/g,' '), score: null },
+    {
+      label: 'Strongest trait',
+      value: topDom[0] ? topDom[0].label : '\u2014',
+      score: topDom[0] ? Math.round(topDom[0].pct) : null,
+      suffix: '/100',
+    },
+    {
+      label: 'Lowest trait',
+      value: topDom.length ? topDom[topDom.length-1].label : '\u2014',
+      score: topDom.length ? Math.round(topDom[topDom.length-1].pct) : null,
+      suffix: '/100',
+    },
+    {
+      label: 'DISC primary',
+      value: discP ? ({D:'Dominance',I:'Influence',S:'Steadiness',C:'Conscientiousness'}[discP] || discP) : '\u2014',
+      score: discScore,
+      suffix: '%',
+    },
+    {
+      label: 'Attachment',
+      value: (d.attachment?.primary_style || '\u2014').replace(/_/g,' '),
+      score: null,
+      // For attachment we show a confidence badge in the score slot so every tile
+      // has the same vertical rhythm.
+      badge: (d.attachment?.confidence || '').toUpperCase() || null,
+    },
   ];
-  const coverStatsHtml = coverStats.map(s =>
-    '<div class="cover-stat"><div class="cs-label">'+esc(s.label)+'</div><div class="cs-value">'+esc(s.value)+'</div>'
-    + (s.score!=null ? '<div class="cs-score">'+s.score+'</div>' : '') + '</div>'
-  ).join('');
+  const coverStatsHtml = coverStats.map(s => {
+    const scoreSlot = s.score != null
+      ? '<div class="cs-score"><span class="cs-num">'+s.score+'</span><span class="cs-suffix">'+esc(s.suffix||'')+'</span></div>'
+      : s.badge
+        ? '<div class="cs-score"><span class="cs-badge '+confClass(s.badge)+'">'+esc(s.badge)+'</span></div>'
+        : '<div class="cs-score"><span class="cs-badge">\u2014</span></div>';
+    return '<div class="cover-stat">'
+      + '<div class="cs-label">'+esc(s.label)+'</div>'
+      + '<div class="cs-value" title="'+esc(s.value)+'">'+esc(s.value)+'</div>'
+      + scoreSlot
+      + '</div>';
+  }).join('');
 
   const bfSection = BF.map(([k,l,a,f]) => traitCard(d.bigfive?.[k], l, a, f, 'bigfive', k)).join('');
   const hxSection = HX.map(([k,l,f]) => traitCard(d.hexaco?.[k], l, null, f, 'hexaco', k)).join('');
@@ -2007,14 +2039,20 @@ function toPrintableHtml(d, opts){
     '.cover-inner{position:relative;z-index:1}',
     '.mark{display:flex;align-items:center;gap:12px;margin-bottom:56px;font-weight:700;letter-spacing:.28em;text-transform:uppercase;font-size:10pt;color:#6d28d9}',
     '.mark-dot{width:28px;height:28px;border-radius:50%;background:radial-gradient(circle,#a78bfa,#6d28d9);box-shadow:0 0 24px rgba(167,139,250,.6)}',
-    '.cover-eyebrow{text-transform:uppercase;letter-spacing:.22em;font-size:9.5pt;color:#7c3aed;font-weight:600;margin-bottom:18px}',
-    '.cover-title{font-size:48pt;font-weight:800;line-height:1;color:#1e0a52;margin-bottom:14px;letter-spacing:-.03em}',
-    '.cover-role{font-size:14pt;color:#5b21b6;font-weight:500;margin-bottom:36px;max-width:6in}',
-    '.cover-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:48px;max-width:6.5in}',
-    '.cover-stat{background:rgba(255,255,255,.7);border:1px solid rgba(167,139,250,.3);border-radius:10px;padding:14px}',
-    '.cs-label{font-size:8pt;color:#7c3aed;text-transform:uppercase;letter-spacing:.12em;font-weight:600;margin-bottom:6px}',
-    '.cs-value{font-size:13pt;color:#1a1238;font-weight:700;line-height:1.2}',
-    '.cs-score{font-size:22pt;color:#5b21b6;font-weight:800;line-height:1;margin-top:4px;font-variant-numeric:tabular-nums}',
+    '.cover-eyebrow{text-transform:uppercase;letter-spacing:.24em;font-size:9pt;color:#7c3aed;font-weight:700;margin-bottom:22px}',
+    '.cover-title{font-size:46pt;font-weight:800;line-height:1.02;color:#1e0a52;margin-bottom:16px;letter-spacing:-.035em;max-width:7in}',
+    '.cover-rule{width:64px;height:3px;background:linear-gradient(90deg,#a78bfa,#ec4899);border-radius:2px;margin:0 0 18px}',
+    '.cover-role{font-size:13pt;color:#5b21b6;font-weight:500;margin-bottom:32px;max-width:6.5in;line-height:1.45}',
+    '.cover-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:48px;max-width:7in}',
+    '.cover-stat{background:rgba(255,255,255,.75);border:1px solid rgba(167,139,250,.25);border-radius:14px;padding:18px 16px 16px;min-height:1.55in;display:flex;flex-direction:column;position:relative;overflow:hidden}',
+    '.cover-stat::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#a78bfa,#ec4899)}',
+    '.cs-label{font-size:8pt;color:#7c3aed;text-transform:uppercase;letter-spacing:.16em;font-weight:700;line-height:1.2;height:2em;margin-bottom:10px;overflow:hidden}',
+    '.cs-value{flex:1;font-size:11.5pt;color:#1a1238;font-weight:700;line-height:1.25;letter-spacing:-.005em;word-break:break-word;overflow-wrap:anywhere;hyphens:auto;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}',
+    '.cs-score{margin-top:12px;padding-top:10px;border-top:1px solid #ede9fe;line-height:1;font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:3px;min-height:34pt}',
+    '.cs-num{font-size:26pt;color:#5b21b6;font-weight:800}',
+    '.cs-suffix{font-size:10pt;color:#9ca3af;font-weight:600;letter-spacing:.02em}',
+    '.cs-badge{display:inline-block;font-size:9pt;padding:5px 12px;border-radius:999px;font-weight:700;letter-spacing:.06em;background:#ede9fe;color:#5b21b6;align-self:flex-start}',
+    '.cs-badge.hi{background:#d1fae5;color:#065f46}.cs-badge.md{background:#fef3c7;color:#78350f}.cs-badge.lo{background:#fee2e2;color:#991b1b}',
     '.cover-meta{position:absolute;bottom:0.6in;left:0.55in;right:0.55in;z-index:1;display:flex;justify-content:space-between;align-items:baseline;padding-top:20px;border-top:1px solid #e4d9ff;font-size:9.5pt;color:#6b7280}',
 
     /* SECTIONS */
@@ -2148,6 +2186,7 @@ function toPrintableHtml(d, opts){
     +   '<div class="mark"><div class="mark-dot"></div>Insight</div>'
     +   '<div class="cover-eyebrow">Computational Personality Inference</div>'
     +   '<h1 class="cover-title">'+esc(subjectName)+'</h1>'
+    +   '<div class="cover-rule"></div>'
     +   (subj.role_guess ? '<div class="cover-role">'+esc(subj.role_guess)+'</div>' : '')
     +   '<div class="cover-strip">'+coverStatsHtml+'</div>'
     + '</div>'
