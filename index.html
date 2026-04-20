@@ -2050,15 +2050,14 @@ function toPrintableHtml(d, opts){
 
   const disc = d.disc || {};
   const discScores = disc.scores || {};
-  const discLabels = {D:'Dominance', I:'Influence', S:'Steadiness', C:'Conscientiousness'};
-  const discColors = {D:'#dc2626', I:'#f59e0b', S:'#10b981', C:'#7c3aed'};
+  // Reuse the discColors + discLabelsShort already declared above
   const discTiles = ['D','I','S','C'].map(k => {
     const v = Math.round(discScores[k] || 0);
     const primary = disc.primary === k ? 'primary' : '';
     return '<div class="disc-tile '+primary+'" style="--c:'+discColors[k]+'">'
       + '<div class="disc-letter">'+k+'</div>'
       + '<div class="disc-v">'+v+'</div>'
-      + '<div class="disc-n">'+discLabels[k]+'</div>'
+      + '<div class="disc-n">'+discLabelsShort[k]+'</div>'
       + '</div>';
   }).join('');
 
