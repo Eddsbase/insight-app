@@ -1312,6 +1312,121 @@ function confClass(c){
 }
 function titleize(k){ return String(k||'').replace(/_/g,' ').replace(/\b\w/g, m => m.toUpperCase()); }
 
+/* ---------- trait interpretations ---------- */
+const TRAIT_INTERP = {
+  bigfive: {
+    openness: [
+      [0,20,'Highly conventional and practical. Prefers tested methods and concrete realities over novel or abstract ideas. Excels in well-defined, repeatable work; can stall on ambiguous or creative tasks.'],
+      [20,40,'Grounded and practical. Not especially drawn to art, philosophy, or novelty for its own sake. Comfortable with routine and proven approaches.'],
+      [40,60,'Situationally open. Will explore new ideas when they matter but does not actively seek novelty. Balances tradition and innovation.'],
+      [60,80,'Intellectually curious and imaginative. Enjoys abstract thinking, new experiences, and varied aesthetic or cultural input. Comfortable with ambiguity.'],
+      [80,100,'Strongly drawn to the novel, abstract, and aesthetic. Generates a lot of ideas; can appear scattered. May undervalue tradition, structure, or proven playbooks.'],
+    ],
+    conscientiousness: [
+      [0,20,'Impulsive and unstructured. Works in bursts, not steady routines. Struggles with follow-through on long, detailed projects; thrives in flexible, self-directed settings.'],
+      [20,40,'Casual about structure and deadlines. Not naturally detail-oriented; prefers general direction over formal process.'],
+      [40,60,'Dependable without being rigid. Gets things done but does not over-engineer the process.'],
+      [60,80,'Organized, reliable, and goal-driven. Finishes what they start. Strong executor; people can plan around them.'],
+      [80,100,'Highly disciplined and detail-focused. May be rigid, perfectionistic, or resistant to adaptive change. Extraordinary on execution; can over-plan.'],
+    ],
+    extraversion: [
+      [0,20,'Reserved and inward-facing. Finds extended social contact draining. Works best with focused, independent time; can be overlooked in loud rooms despite strong ideas.'],
+      [20,40,'Quiet and measured. Socializes selectively. Prefers small groups or solo work to open bullpens and large gatherings.'],
+      [40,60,'Balanced social energy. Can lead or listen depending on context. Not defined by either pole.'],
+      [60,80,'Energetic, expressive, and socially confident. Draws energy from people, takes initiative in groups, and often leads conversations.'],
+      [80,100,'Highly outgoing and assertive. Takes the room; may talk over others or struggle with sustained solo focus.'],
+    ],
+    agreeableness: [
+      [0,20,'Tough-minded and competitive. Comfortable with conflict and direct negotiation. Can come across as cold, blunt, or skeptical of others\u2019 motives.'],
+      [20,40,'Direct and pragmatic. Will push back, prioritize their position, and prefer frankness over tact. Useful on hard calls; can wear on softer colleagues.'],
+      [40,60,'Balances warmth with firmness. Cooperative but not a pushover. Handles both collaborative and adversarial settings.'],
+      [60,80,'Warm, cooperative, and team-oriented. Values harmony and often makes space for others. Strong in relationship-heavy roles.'],
+      [80,100,'Highly accommodating and conflict-averse. May avoid needed hard conversations; can be taken advantage of by more aggressive counterparts.'],
+    ],
+    neuroticism: [
+      [0,20,'Emotionally very steady. Rarely rattled. May underestimate risks or miss emotional cues in others. Excels in crisis and high-stakes work.'],
+      [20,40,'Calm and composed. Handles stress well, recovers quickly from setbacks. Not prone to worry or self-doubt.'],
+      [40,60,'Normal emotional range. Reacts appropriately to stress without being overwhelmed; feels things but recovers.'],
+      [60,80,'Emotionally sensitive. Feels stress, criticism, and uncertainty more acutely. Can be reactive but also attuned and empathetic.'],
+      [80,100,'Prone to anxiety, mood swings, and rumination. Needs psychological safety and clear expectations to perform at their best.'],
+    ],
+  },
+  hexaco: {
+    honesty_humility: [
+      [0,20,'Strong low-H markers expected: grandiosity, entitlement, status-signaling, or contempt for lower-status others. Likely to manipulate or self-deal under pressure \u2014 probe specifically in references.'],
+      [20,40,'Some low-H signals. Will prioritize self-interest when frictionless. Watch in adversarial or high-stakes contexts.'],
+      [40,60,'Typical Honesty-Humility range. Neither markedly humble nor grandiose.'],
+      [60,80,'Sincere, fair-minded, and modest. Unlikely to manipulate or exploit. Comfortable with equal-status interaction.'],
+      [80,100,'Strongly humble, egalitarian, and principled. Actively under-claims credit; may under-advocate for themselves or their team.'],
+    ],
+    emotionality: [
+      [0,20,'Unsentimental and emotionally independent. Minimal fearfulness or attachment-seeking.'],
+      [20,40,'Composed and self-reliant emotionally.'],
+      [40,60,'Normal emotional attachment and responsiveness.'],
+      [60,80,'Emotionally attuned; values close bonds and responds to others\u2019 feelings.'],
+      [80,100,'Highly sentimental and empathic; can be anxious or dependent on close relationships.'],
+    ],
+    extraversion: [
+      [0,20,'Reserved and low-energy. Prefers solitude.'],
+      [20,40,'Quiet and selective; comfortable in small, familiar groups.'],
+      [40,60,'Balanced social energy.'],
+      [60,80,'Socially confident, expressive, and lively.'],
+      [80,100,'Highly assertive and energetic; takes the room.'],
+    ],
+    agreeableness: [
+      [0,20,'Stubborn, critical, quick to anger.'],
+      [20,40,'Direct and impatient with others\u2019 errors.'],
+      [40,60,'Balances forgiveness with standards.'],
+      [60,80,'Forgiving, gentle, and patient.'],
+      [80,100,'Highly forgiving and flexible; may let standards slide.'],
+    ],
+    conscientiousness: [
+      [0,20,'Impulsive and disorganized.'],
+      [20,40,'Casual about structure.'],
+      [40,60,'Dependable without being rigid.'],
+      [60,80,'Organized, diligent, and prudent.'],
+      [80,100,'Perfectionistic and highly methodical; may over-plan.'],
+    ],
+    openness: [
+      [0,20,'Conventional and pragmatic.'],
+      [20,40,'Grounded; favors proven approaches.'],
+      [40,60,'Situationally open.'],
+      [60,80,'Curious, creative, and drawn to the unconventional.'],
+      [80,100,'Highly unconventional; strong aesthetic and intellectual curiosity.'],
+    ],
+  },
+  darktriad: {
+    machiavellianism: [
+      [0,30,'No Machiavellian markers surfaced. Operates through cooperation, not political maneuvering.'],
+      [30,50,'Some strategic or political patterns, but not prominent. May manage optics without being calculating.'],
+      [50,70,'Elevated markers. Expect calculated positioning, strategic framing, and attention to power dynamics.'],
+      [70,100,'Strong Machiavellian markers. Treats relationships and narratives as instruments. Probe for manipulation in interview and references.'],
+    ],
+    narcissism: [
+      [0,30,'No narcissistic markers. Typical self-regard; willing to share credit.'],
+      [30,50,'Confident self-presentation but not grandiose. Watch for credit-claiming under stress.'],
+      [50,70,'Elevated markers. Strong self-enhancement, credit-taking, and status-seeking. Can drive performance; tough on egos around them.'],
+      [70,100,'Strong narcissistic markers. Grandiosity, entitlement, and exploitation themes \u2014 structured reference checks essential.'],
+    ],
+    psychopathy: [
+      [0,30,'No psychopathy markers. Normal affect, empathy, and impulse control.'],
+      [30,50,'Some boldness or low-affect signals; nothing exploitative.'],
+      [50,70,'Elevated markers. Expect risk-taking, emotional shallowness, or callousness under pressure.'],
+      [70,100,'Strong markers. Serious hiring concern \u2014 thorough references and structured behavioral interview required.'],
+    ],
+  },
+};
+function interpretTrait(category, key, percentile){
+  const bands = TRAIT_INTERP[category] && TRAIT_INTERP[category][key];
+  if (!bands) return '';
+  let p = Number(percentile); if (!isFinite(p)) p = 50;
+  p = Math.max(0, Math.min(100, p));
+  for (const [lo, hi, desc] of bands) {
+    if (p >= lo && p <= hi) return desc;
+  }
+  return bands[bands.length-1][2];
+}
+
 function renderBar(pct, ciLow, ciHigh, size){
   const p = clamp(Number(pct));
   let ci = '';
@@ -1334,13 +1449,15 @@ function render(data){
     const t = data.bigfive?.[k]; if (!t) return;
     const pct = clamp(t.percentile);
     const wrap = document.createElement('div');
+    const interp = interpretTrait('bigfive', k, pct);
     wrap.innerHTML = `
       <div class="trait">
         <div class="traitName">${label}<span class="conf ${confClass(t.confidence)}">${escape((t.confidence||'medium').toUpperCase())}</span></div>
         ${renderBar(pct, t.ci_low, t.ci_high)}
         <div class="pct">${Math.round(pct)}</div>
       </div>
-      <div class="note" style="margin:2px 0 8px">${escape(t.summary || '')}</div>
+      ${interp ? `<div style="margin:8px 0 10px"><div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--accent);margin-bottom:3px">What this means</div><div style="color:var(--ink);font-size:13px;line-height:1.55">${escape(interp)}</div></div>` : ''}
+      ${t.summary ? `<div style="margin:6px 0 8px"><div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--accent2);margin-bottom:3px">Evidence</div><div class="note" style="color:var(--muted);font-size:12.5px;line-height:1.5">${escape(t.summary)}</div></div>` : ''}
       <details>
         <summary>Aspects &amp; facets</summary>
         <div style="margin-top:8px">
@@ -1361,13 +1478,15 @@ function render(data){
     const t = data.hexaco?.[k]; if (!t) return;
     const pct = clamp(t.percentile);
     const wrap = document.createElement('div');
+    const interp = interpretTrait('hexaco', k, pct);
     wrap.innerHTML = `
       <div class="trait">
         <div class="traitName">${label}<span class="conf ${confClass(t.confidence)}">${escape((t.confidence||'medium').toUpperCase())}</span></div>
         ${renderBar(pct)}
         <div class="pct">${Math.round(pct)}</div>
       </div>
-      <div class="note" style="margin:2px 0 8px">${escape(t.notes || '')}</div>
+      ${interp ? `<div style="margin:8px 0 10px"><div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--accent);margin-bottom:3px">What this means</div><div style="color:var(--ink);font-size:13px;line-height:1.55">${escape(interp)}</div></div>` : ''}
+      ${t.notes ? `<div style="margin:6px 0 8px"><div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--accent2);margin-bottom:3px">Evidence</div><div class="note" style="color:var(--muted);font-size:12.5px;line-height:1.5">${escape(t.notes)}</div></div>` : ''}
       <details>
         <summary>Facets</summary>
         <div style="margin-top:8px">
@@ -1390,13 +1509,15 @@ function render(data){
     const t = data.dark_triad?.[k]; if (!t) return;
     const pct = clamp(t.percentile);
     const row = document.createElement('div');
+    const interp = interpretTrait('darktriad', k, pct);
     row.innerHTML = `
       <div class="trait">
         <div class="traitName">${label}<span class="conf ${confClass(t.confidence)}">${escape((t.confidence||'medium').toUpperCase())}</span></div>
         ${renderBar(pct)}
         <div class="pct">${Math.round(pct)}</div>
       </div>
-      <div class="note" style="margin:0 0 8px">${escape(t.evidence || '')}</div>
+      ${interp ? `<div style="margin:8px 0 10px"><div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--accent);margin-bottom:3px">What this means</div><div style="color:var(--ink);font-size:13px;line-height:1.55">${escape(interp)}</div></div>` : ''}
+      ${t.evidence ? `<div style="margin:6px 0 8px"><div class="note" style="text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--accent2);margin-bottom:3px">Evidence</div><div class="note" style="color:var(--muted);font-size:12.5px;line-height:1.5">${escape(t.evidence)}</div></div>` : ''}
     `;
     dtEl.appendChild(row);
   });
@@ -1717,30 +1838,37 @@ function toPrintableHtml(d, opts){
     ['openness','Openness',['aesthetic_appreciation','inquisitiveness','creativity','unconventionality']],
   ];
 
-  const traitCard = (t, label, aspects, facets) => {
+  const traitCard = (t, label, aspects, facets, category, key) => {
     if (!t) return '';
     const pct = Math.round(clamp(t.percentile));
+    const interp = typeof interpretTrait === 'function' ? interpretTrait(category, key, t.percentile) : '';
+    const evidenceText = t.summary || t.notes || '';
     return '<div class="trait-card">'
       + '<div class="trait-head"><div class="trait-name">'+esc(label)+'</div>'
       + '<div class="trait-score">'+pct+'<span class="conf '+confClass(t.confidence)+'">'+esc((t.confidence||'medium').toUpperCase())+'</span></div></div>'
       + pBar(t.percentile, t.ci_low, t.ci_high)
-      + (t.summary ? '<div class="summary">'+esc(t.summary)+'</div>' : '')
-      + (t.notes ? '<div class="summary">'+esc(t.notes)+'</div>' : '')
-      + (aspects && aspects.length ? '<div class="sublabel">Aspects</div>'+aspects.map(a => subTrait(titleize(a), t.aspects?.[a])).join('') : '')
+      + (interp ? '<div class="interp-label">What this means</div><div class="interp">'+esc(interp)+'</div>' : '')
+      + (evidenceText ? '<div class="evidence-label">Evidence</div><div class="evidence">'+esc(evidenceText)+'</div>' : '')
+      + (aspects && aspects.length ? '<div class="sublabel" style="margin-top:12px">Aspects</div>'+aspects.map(a => subTrait(titleize(a), t.aspects?.[a])).join('') : '')
       + (facets && facets.length ? '<div class="sublabel" style="margin-top:10px">Facets</div>'+facets.map(f => subTrait(titleize(f), t.facets?.[f])).join('') : '')
       + '</div>';
   };
 
-  const bfSection = BF.map(([k,l,a,f]) => traitCard(d.bigfive?.[k], l, a, f)).join('');
-  const hxSection = HX.map(([k,l,f]) => traitCard(d.hexaco?.[k], l, null, f)).join('');
+  const bfSection = BF.map(([k,l,a,f]) => traitCard(d.bigfive?.[k], l, a, f, 'bigfive', k)).join('');
+  const hxSection = HX.map(([k,l,f]) => traitCard(d.hexaco?.[k], l, null, f, 'hexaco', k)).join('');
 
   const dtRows = [['machiavellianism','Machiavellianism'],['narcissism','Narcissism'],['psychopathy','Psychopathy']];
   const dtSection = dtRows.map(([k,l]) => {
     const t = d.dark_triad?.[k]; if (!t) return '';
     const pct = Math.round(clamp(t.percentile));
-    return '<div class="dt-row"><div class="dt-label">'+esc(l)+'<span class="conf '+confClass(t.confidence)+'">'+esc((t.confidence||'medium').toUpperCase())+'</span></div>'
-      + pBar(t.percentile) + '<div class="dt-score">'+pct+'</div>'
-      + (t.evidence ? '<div class="dt-ev">'+esc(t.evidence)+'</div>' : '') + '</div>';
+    const interp = typeof interpretTrait === 'function' ? interpretTrait('darktriad', k, t.percentile) : '';
+    return '<div class="trait-card">'
+      + '<div class="trait-head"><div class="trait-name">'+esc(l)+'</div>'
+      + '<div class="trait-score">'+pct+'<span class="conf '+confClass(t.confidence)+'">'+esc((t.confidence||'medium').toUpperCase())+'</span></div></div>'
+      + pBar(t.percentile)
+      + (interp ? '<div class="interp-label">What this means</div><div class="interp">'+esc(interp)+'</div>' : '')
+      + (t.evidence ? '<div class="evidence-label">Evidence</div><div class="evidence">'+esc(t.evidence)+'</div>' : '')
+      + '</div>';
   }).join('');
 
   const disc = d.disc || {};
@@ -1798,6 +1926,10 @@ function toPrintableHtml(d, opts){
     + '.bar .fill{position:absolute;top:0;bottom:0;left:0;background:linear-gradient(90deg,#a78bfa,#ec4899);border-radius:999px}'
     + '.bar .ci{position:absolute;top:-2px;bottom:-2px;border-left:1px dashed rgba(107,114,128,.55);border-right:1px dashed rgba(107,114,128,.55)}'
     + '.summary{font-size:10pt;color:#4b5563;margin:8px 0 10px;line-height:1.55}'
+    + '.interp-label,.evidence-label{font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.12em;margin-top:10px;margin-bottom:4px}'
+    + '.interp-label{color:#7c3aed}.evidence-label{color:#6b7280}'
+    + '.interp{font-size:10pt;line-height:1.6;color:#1a1238;margin-bottom:6px}'
+    + '.evidence{font-size:9.5pt;line-height:1.55;color:#4b5563;padding-left:10px;border-left:2px solid #e4d9ff;margin-bottom:4px}'
     + '.sublabel{font-size:8pt;text-transform:uppercase;letter-spacing:.12em;color:#7c3aed;margin-bottom:4px;font-weight:600}'
     + '.sub{display:grid;grid-template-columns:130px 1fr 32px;gap:8px;align-items:center;margin:3px 0;font-size:9pt}'
     + '.sub-label{color:#4b5563}.sub-val{text-align:right;color:#1a1238;font-variant-numeric:tabular-nums}'
