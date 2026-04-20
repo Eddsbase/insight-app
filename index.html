@@ -374,9 +374,10 @@
 
       <div class="resultsWrap" id="results">
         <div class="dl">
-          <button id="dlHtml" type="button">Download full report (HTML)</button>
-          <button id="dlMd" type="button">Download as Markdown</button>
-          <button id="dlJson" type="button">Download raw JSON</button>
+          <button id="dlPdf" type="button">Download PDF</button>
+          <button id="dlHtml" type="button">Save standalone HTML</button>
+          <button id="dlMd" type="button">Markdown</button>
+          <button id="dlJson" type="button">Raw JSON</button>
         </div>
 
         <div class="traitBlock">
@@ -955,7 +956,9 @@ async function callWizard(sources){
   const system = `You are INSIGHT — a deep computational personality-inference engine. You read text the subject has produced or curated (resume, LinkedIn, Facebook) and return a full psychometric report that goes beyond what Crystal Knows or Wonderlic produce. Your outputs are grounded in peer-reviewed frameworks: Big Five / NEO-PI-R (Costa & McCrae) with DeYoung's 10 aspects, HEXACO (Ashton & Lee) with all 24 facets including Honesty-Humility, the Dark Triad (Paulhus & Williams), DISC communication style, Schwartz's 10 basic values, self-determination theory drivers, Bartholomew/Hazan & Shaver attachment styles, and lexical markers from Pennebaker (LIWC, I-talk), Yarkoni's blog-corpus study, and Park/Schwartz/Eichstaedt/Kosinski's Facebook study.
 
 INPUT HANDLING:
-- Work ONLY with the text provided in the user message (resume / LinkedIn paste / Facebook paste / social URLs). Do not claim to have browsed anything. If a URL is provided without accompanying pasted content, note it as context metadata only — do not invent quotes from it.
+- The user message may contain: user-pasted text AND server-fetched content from URLs (marked with "=== FETCHED <label> (<url>) ===" blocks). BOTH are valid sources. Treat fetched blocks as first-person content the subject authored (GitHub bio/repos, LinkedIn profile excerpts, portfolio copy, Twitter posts, etc.).
+- If you see "=== UNREACHABLE SOURCES ===", those URLs could not be retrieved (auth walls, errors). Do NOT invent quotes from them — mention in caveats that those sources were URL-only.
+- Quote verbatim substrings from any fetched block in evidence_map, and put the source URL in the evidence "source" field (e.g. "GitHub · github.com/eddyoung").
 - If signal is thin, widen CIs and say so in caveats. Do not hallucinate quotes to fill the evidence_map.
 
 CORE DISCIPLINE:
@@ -1550,7 +1553,21 @@ document.getElementById('dlMd').addEventListener('click', () => {
 });
 document.getElementById('dlHtml').addEventListener('click', () => {
   if (!LAST_DATA) return;
-  downloadFile('insight-report.html', 'text/html', toStandaloneHtml(LAST_DATA));
+  downloadFile('insight-report.html', 'text/html', toPrintableHtml(LAST_DATA, { autoPrint: false }));
+});
+document.getElementById('dlPdf').addEventListener('click', () => {
+  if (!LAST_DATA) return;
+  const html = toPrintableHtml(LAST_DATA, { autoPrint: true });
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank');
+  if (!w) {
+    // Popup blocked — fall back to download
+    downloadFile('insight-report.html', 'text/html', html);
+    alert('Popup was blocked. The HTML was downloaded — open it, then File → Print → Save as PDF.');
+  }
+  // Revoke the blob URL after a reasonable delay so the new window can still load it.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 });
 function downloadFile(name, mime, content){
   const blob = new Blob([content], {type: mime});
@@ -1662,30 +1679,208 @@ function toMarkdown(d){
   return lines.join('\n');
 }
 
-function toStandaloneHtml(d){
-  const md = toMarkdown(d);
-  const body = md
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/^### (.*)$/gm,'<h3>$1</h3>')
-    .replace(/^## (.*)$/gm,'<h2>$1</h2>')
-    .replace(/^# (.*)$/gm,'<h1>$1</h1>')
-    .replace(/^\- (.*)$/gm,'<li>$1</li>')
-    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g,'<em>$1</em>')
-    .replace(/\n\n/g,'</p><p>')
-    .replace(/(<li>.*?<\/li>)(\s*<li>)/gs,'$1$2');
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Insight Report</title>
-<style>
-body{font:15px/1.6 ui-sans-serif,system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:760px;margin:40px auto;padding:0 24px;color:#1a1238;background:#fbf9ff}
-h1{font-size:32px;margin:0 0 4px;color:#5b21b6}
-h2{font-size:22px;margin:30px 0 8px;color:#6d28d9;border-bottom:1px solid #e9d5ff;padding-bottom:4px}
-h3{font-size:17px;margin:18px 0 6px;color:#7c3aed}
-p{margin:8px 0}
-li{margin:4px 0}
-em{color:#6b7280}
-strong{color:#4c1d95}
-</style>
-</head><body><p>${body}</p></body></html>`;
+function toPrintableHtml(d, opts){
+  const autoPrint = !!(opts && opts.autoPrint);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const clamp = (n) => { n = Number(n); if (!isFinite(n)) return 50; return Math.max(0, Math.min(100, n)); };
+  const titleize = (k) => String(k||'').replace(/_/g,' ').replace(/\b\w/g, m => m.toUpperCase());
+  const confClass = (c) => { const v = (c||'medium').toLowerCase(); return v.startsWith('h') ? 'hi' : v.startsWith('l') ? 'lo' : 'md'; };
+
+  const pBar = (pct, low, high) => {
+    const p = clamp(pct);
+    let ci = '';
+    if (low != null && high != null) {
+      const lo = clamp(low), hi = clamp(high);
+      ci = '<span class="ci" style="left:'+lo+'%;width:'+Math.max(0,hi-lo)+'%"></span>';
+    }
+    return '<div class="bar"><span class="fill" style="width:'+p+'%"></span>'+ci+'</div>';
+  };
+
+  const subTrait = (label, val) => {
+    const p = clamp(val);
+    return '<div class="sub"><div class="sub-label">'+esc(label)+'</div><div class="sub-bar">'+pBar(p)+'</div><div class="sub-val">'+Math.round(p)+'</div></div>';
+  };
+
+  const BF = [
+    ['openness','Openness',['intellect','openness_proper'],['fantasy','aesthetics','feelings','actions','ideas','values']],
+    ['conscientiousness','Conscientiousness',['industriousness','orderliness'],['competence','order','dutifulness','achievement_striving','self_discipline','deliberation']],
+    ['extraversion','Extraversion',['enthusiasm','assertiveness'],['warmth','gregariousness','assertiveness','activity','excitement_seeking','positive_emotions']],
+    ['agreeableness','Agreeableness',['compassion','politeness'],['trust','straightforwardness','altruism','compliance','modesty','tender_mindedness']],
+    ['neuroticism','Neuroticism',['volatility','withdrawal'],['anxiety','angry_hostility','depression','self_consciousness','impulsiveness','vulnerability']],
+  ];
+  const HX = [
+    ['honesty_humility','Honesty-Humility',['sincerity','fairness','greed_avoidance','modesty']],
+    ['emotionality','Emotionality',['fearfulness','anxiety','dependence','sentimentality']],
+    ['extraversion','eXtraversion',['social_self_esteem','social_boldness','sociability','liveliness']],
+    ['agreeableness','Agreeableness',['forgiveness','gentleness','flexibility','patience']],
+    ['conscientiousness','Conscientiousness',['organization','diligence','perfectionism','prudence']],
+    ['openness','Openness',['aesthetic_appreciation','inquisitiveness','creativity','unconventionality']],
+  ];
+
+  const traitCard = (t, label, aspects, facets) => {
+    if (!t) return '';
+    const pct = Math.round(clamp(t.percentile));
+    return '<div class="trait-card">'
+      + '<div class="trait-head"><div class="trait-name">'+esc(label)+'</div>'
+      + '<div class="trait-score">'+pct+'<span class="conf '+confClass(t.confidence)+'">'+esc((t.confidence||'medium').toUpperCase())+'</span></div></div>'
+      + pBar(t.percentile, t.ci_low, t.ci_high)
+      + (t.summary ? '<div class="summary">'+esc(t.summary)+'</div>' : '')
+      + (t.notes ? '<div class="summary">'+esc(t.notes)+'</div>' : '')
+      + (aspects && aspects.length ? '<div class="sublabel">Aspects</div>'+aspects.map(a => subTrait(titleize(a), t.aspects?.[a])).join('') : '')
+      + (facets && facets.length ? '<div class="sublabel" style="margin-top:10px">Facets</div>'+facets.map(f => subTrait(titleize(f), t.facets?.[f])).join('') : '')
+      + '</div>';
+  };
+
+  const bfSection = BF.map(([k,l,a,f]) => traitCard(d.bigfive?.[k], l, a, f)).join('');
+  const hxSection = HX.map(([k,l,f]) => traitCard(d.hexaco?.[k], l, null, f)).join('');
+
+  const dtRows = [['machiavellianism','Machiavellianism'],['narcissism','Narcissism'],['psychopathy','Psychopathy']];
+  const dtSection = dtRows.map(([k,l]) => {
+    const t = d.dark_triad?.[k]; if (!t) return '';
+    const pct = Math.round(clamp(t.percentile));
+    return '<div class="dt-row"><div class="dt-label">'+esc(l)+'<span class="conf '+confClass(t.confidence)+'">'+esc((t.confidence||'medium').toUpperCase())+'</span></div>'
+      + pBar(t.percentile) + '<div class="dt-score">'+pct+'</div>'
+      + (t.evidence ? '<div class="dt-ev">'+esc(t.evidence)+'</div>' : '') + '</div>';
+  }).join('');
+
+  const disc = d.disc || {};
+  const discLabels = {D:'Dominance', I:'Influence', S:'Steadiness', C:'Conscientiousness'};
+  const discTiles = ['D','I','S','C'].map(k => {
+    const v = Math.round(disc.scores?.[k] || 0);
+    const primary = disc.primary === k ? 'primary' : '';
+    return '<div class="disc-tile '+primary+'"><div class="disc-v">'+v+'</div><div class="disc-k">'+k+'</div><div class="disc-n">'+discLabels[k]+'</div></div>';
+  }).join('');
+
+  const weighted = (items) => (items||[]).map(v =>
+    '<div class="weighted"><div class="w-label"><b>'+esc(v.name||'')+'</b></div>'
+    + '<div class="w-bar">'+pBar(v.strength)+'</div>'
+    + '<div class="w-val">'+Math.round(clamp(v.strength))+'</div>'
+    + (v.evidence ? '<div class="w-ev">'+esc(v.evidence)+'</div>' : '') + '</div>').join('');
+
+  const listHtml = (items) => !(items||[]).length ? '<div class="muted">—</div>' : '<ul>'+items.map(x => '<li>'+esc(x)+'</li>').join('')+'</ul>';
+
+  const cg = d.communication_guide || {};
+  const mg = d.motivation_guide || {};
+  const cf = d.career_fit || {};
+  const cgn = d.cognitive_style || {};
+  const at = d.attachment || {};
+
+  const em = (d.evidence_map||[]).map(e =>
+    '<div class="quote"><div class="src">'+esc(e.source||'')+' · '+esc(e.direction||'')+' · '+esc(e.interpreted_as||'')+'</div>'
+    + '"'+esc(e.quote||'')+'"</div>').join('');
+
+  const subj = d.subject || {};
+  const subjectName = subj.name_guess || 'Personality Report';
+  const date = new Date().toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'});
+  const truncatedBanner = d.__truncated ? '<div class="warn-banner">⚠️ This report is partial — the response was cut off before completion. Sections below were salvaged from what was generated.</div>' : '';
+
+  const styles = '@page { size: letter; margin: 0.5in; }'
+    + '*{box-sizing:border-box}'
+    + 'html,body{margin:0;padding:0;font-family:"Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif;background:#fbf9ff;color:#1a1238;font-size:11pt;line-height:1.55}'
+    + '.wrap{max-width:7.5in;margin:0 auto;padding:0}'
+    + '.cover{padding:1.4in 0.5in 1in;border-bottom:1px solid #e4d9ff;page-break-after:always}'
+    + '.eyebrow{text-transform:uppercase;letter-spacing:.25em;font-size:10pt;color:#7c3aed;font-weight:600;margin-bottom:24px}'
+    + '.title{font-size:44pt;font-weight:800;line-height:1;letter-spacing:-.02em;color:#2e1065;margin:0 0 8px}'
+    + '.subtitle{font-size:14pt;color:#4c1d95;margin-bottom:32px}'
+    + '.meta{font-size:10pt;color:#6b7280}'
+    + 'section{padding:0 0.5in}'
+    + 'h2{font-size:20pt;font-weight:700;color:#2e1065;margin:28px 0 14px;padding-bottom:8px;border-bottom:1px solid #e4d9ff;letter-spacing:-.01em}'
+    + 'h3{font-size:14pt;font-weight:700;color:#5b21b6;margin:18px 0 8px}'
+    + 'h4{font-size:11pt;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.1em;margin:16px 0 8px}'
+    + '.lead{font-size:12pt;line-height:1.7;color:#1a1238;border-left:3px solid #a78bfa;padding-left:16px;margin:12px 0 24px}'
+    + '.trait-card{border:1px solid #e4d9ff;border-radius:10px;padding:14px 16px;margin-bottom:12px;background:#fff;page-break-inside:avoid;break-inside:avoid}'
+    + '.trait-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}'
+    + '.trait-name{font-size:13pt;font-weight:700;color:#1a1238}'
+    + '.trait-score{font-size:24pt;font-weight:800;color:#5b21b6}'
+    + '.conf{display:inline-block;font-size:8pt;padding:2px 7px;border-radius:999px;margin-left:10px;vertical-align:middle;font-weight:600;letter-spacing:.05em}'
+    + '.conf.hi{background:#d1fae5;color:#065f46}.conf.md{background:#fef3c7;color:#78350f}.conf.lo{background:#fee2e2;color:#7f1d1d}'
+    + '.bar{position:relative;height:10px;background:#ede9fe;border-radius:999px;overflow:hidden;margin:8px 0}'
+    + '.bar .fill{position:absolute;top:0;bottom:0;left:0;background:linear-gradient(90deg,#a78bfa,#ec4899);border-radius:999px}'
+    + '.bar .ci{position:absolute;top:-2px;bottom:-2px;border-left:1px dashed rgba(107,114,128,.55);border-right:1px dashed rgba(107,114,128,.55)}'
+    + '.summary{font-size:10pt;color:#4b5563;margin:8px 0 10px;line-height:1.55}'
+    + '.sublabel{font-size:8pt;text-transform:uppercase;letter-spacing:.12em;color:#7c3aed;margin-bottom:4px;font-weight:600}'
+    + '.sub{display:grid;grid-template-columns:130px 1fr 32px;gap:8px;align-items:center;margin:3px 0;font-size:9pt}'
+    + '.sub-label{color:#4b5563}.sub-val{text-align:right;color:#1a1238;font-variant-numeric:tabular-nums}'
+    + '.sub-bar .bar{height:6px;margin:0}'
+    + '.dt-row{display:grid;grid-template-columns:220px 1fr 40px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #e4d9ff}.dt-row:last-child{border-bottom:0}'
+    + '.dt-label{font-weight:600}.dt-score{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}'
+    + '.dt-ev{grid-column:1/4;color:#6b7280;font-size:9pt;margin-top:2px}'
+    + '.disc{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:12px 0}'
+    + '.disc-tile{border:1px solid #e4d9ff;border-radius:10px;padding:16px;text-align:center;background:#fff}'
+    + '.disc-tile.primary{border-color:#a78bfa;border-width:2px;background:#faf5ff}'
+    + '.disc-v{font-size:28pt;font-weight:800;color:#5b21b6;line-height:1}'
+    + '.disc-k{font-size:12pt;font-weight:700;color:#1a1238;margin-top:4px}'
+    + '.disc-n{font-size:9pt;color:#6b7280}'
+    + '.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:10pt}.kv dt{color:#6b7280}.kv dd{margin:0;color:#1a1238}'
+    + '.weighted{display:grid;grid-template-columns:140px 1fr 40px;gap:8px 12px;margin:6px 0;align-items:center;font-size:10pt}'
+    + '.weighted .w-ev{grid-column:2/4;color:#6b7280;font-size:9pt;margin-top:2px}.weighted .w-bar .bar{height:6px;margin:0}'
+    + 'ul{margin:6px 0 14px;padding-left:20px}li{margin:4px 0;font-size:10pt;line-height:1.5}'
+    + '.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}'
+    + '.card{background:#fff;border:1px solid #e4d9ff;border-radius:10px;padding:14px;page-break-inside:avoid;break-inside:avoid}'
+    + '.quote{border-left:3px solid #a78bfa;padding:8px 14px;margin:10px 0;background:#faf5ff;border-radius:0 6px 6px 0;font-size:10pt;color:#1a1238;line-height:1.5;page-break-inside:avoid}'
+    + '.quote .src{display:block;font-size:8pt;color:#7c3aed;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;font-weight:600}'
+    + '.muted{color:#6b7280;font-size:10pt}.small{font-size:9pt}'
+    + '.warn-banner{background:#fef3c7;border:1px solid #fbbf24;color:#78350f;border-radius:8px;padding:10px 14px;margin:20px 0.5in 0;font-size:10pt}'
+    + '@media print{body{background:white}.no-print{display:none!important}}';
+
+  const printScript = autoPrint ? '<script>window.addEventListener("load",()=>setTimeout(()=>window.print(),400));</script>' : '';
+
+  return '<!doctype html><html><head><meta charset="utf-8"><title>Insight Report · '+esc(subjectName)+'</title>'
+    + '<link rel="preconnect" href="https://fonts.googleapis.com">'
+    + '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+    + '<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
+    + '<style>'+styles+'</style></head><body>'
+    + '<div class="wrap">'
+    + '<section class="cover">'
+    +   '<div class="eyebrow">INSIGHT · Computational Personality Inference</div>'
+    +   '<h1 class="title">'+esc(subjectName)+'</h1>'
+    +   (subj.role_guess ? '<div class="subtitle">'+esc(subj.role_guess)+'</div>' : '')
+    +   '<div class="meta">Generated '+esc(date)+'</div>'
+    + '</section>'
+    + truncatedBanner
+    + '<section><h2>Executive Summary</h2><div class="lead">'+esc(d.executive_summary||'—').replace(/\n/g,'<br>')+'</div></section>'
+    + '<section><h2>Big Five · OCEAN</h2><div class="small muted" style="margin-bottom:10px">Percentiles (0–100) with 80% confidence intervals. NEO-PI-R facets + DeYoung aspects.</div>'+bfSection+'</section>'
+    + '<section><h2>HEXACO</h2><div class="small muted" style="margin-bottom:10px">Includes Honesty-Humility — the 6th dimension absent from Big Five.</div>'+hxSection+'</section>'
+    + '<section><h2>Dark Triad</h2><div class="small muted" style="margin-bottom:10px">Flagged as signals, not verdicts.</div>'+dtSection+'</section>'
+    + '<section><h2>DISC Communication Style</h2><div class="disc">'+discTiles+'</div>'
+    +   '<div class="kv" style="margin-top:10px"><dt>Primary</dt><dd><b>'+esc(disc.primary||'—')+'</b></dd><dt>Secondary</dt><dd><b>'+esc(disc.secondary||'—')+'</b></dd></div>'
+    +   (disc.notes ? '<div class="summary">'+esc(disc.notes)+'</div>' : '') + '</section>'
+    + '<section><h2>Attachment &amp; Interpersonal</h2>'
+    +   '<div class="kv"><dt>Primary style</dt><dd><b>'+esc((at.primary_style||'—').replace(/_/g,' '))+'</b><span class="conf '+confClass(at.confidence)+'">'+esc((at.confidence||'medium').toUpperCase())+'</span></dd></div>'
+    +   (at.notes ? '<div class="summary" style="margin-top:8px">'+esc(at.notes)+'</div>' : '') + '</section>'
+    + '<section><h2>Values &amp; Drivers</h2><div class="two-col">'
+    +   '<div class="card"><h4 style="margin-top:0">Top Values (Schwartz)</h4>'+(weighted(d.values_schwartz)||'<div class="muted">—</div>')+'</div>'
+    +   '<div class="card"><h4 style="margin-top:0">Motivational Drivers</h4>'+(weighted(d.motivational_drivers)||'<div class="muted">—</div>')+'</div>'
+    + '</div></section>'
+    + '<section><h2>Strengths · Blind Spots · Derailers</h2><div class="two-col">'
+    +   '<div class="card"><h4 style="margin-top:0;color:#065f46">Strengths</h4>'+listHtml(d.strengths)+'</div>'
+    +   '<div class="card"><h4 style="margin-top:0;color:#92400e">Blind Spots</h4>'+listHtml(d.blind_spots)+'</div>'
+    + '</div><div class="card" style="margin-top:14px"><h4 style="margin-top:0;color:#b91c1c">Derailers under stress</h4>'+listHtml(d.derailers_under_stress)+'</div></section>'
+    + '<section><h2>How to Communicate with Them</h2>'
+    +   (cg.preferred_style ? '<div class="summary"><b>Preferred style:</b> '+esc(cg.preferred_style)+'</div>' : '')
+    +   '<div class="two-col" style="margin-top:8px"><div class="card"><h4 style="margin-top:0;color:#065f46">Do</h4>'+listHtml(cg.dos)+'</div>'
+    +   '<div class="card"><h4 style="margin-top:0;color:#b91c1c">Don\'t</h4>'+listHtml(cg.donts)+'</div></div>'
+    +   (cg.how_to_pitch ? '<div class="summary" style="margin-top:10px"><b>How to pitch:</b> '+esc(cg.how_to_pitch)+'</div>' : '')
+    +   (cg.how_to_disagree ? '<div class="summary"><b>How to disagree:</b> '+esc(cg.how_to_disagree)+'</div>' : '') + '</section>'
+    + '<section><h2>How to Motivate Them</h2>'
+    +   (mg.what_drives_them ? '<div class="summary"><b>Drives:</b> '+esc(mg.what_drives_them)+'</div>' : '')
+    +   (mg.what_demotivates ? '<div class="summary"><b>Demotivates:</b> '+esc(mg.what_demotivates)+'</div>' : '')
+    +   (mg.how_to_recognize ? '<div class="summary"><b>How to recognize:</b> '+esc(mg.how_to_recognize)+'</div>' : '') + '</section>'
+    + '<section><h2>Career &amp; Role Fit</h2><div class="two-col">'
+    +   '<div class="card"><h4 style="margin-top:0;color:#065f46">Likely strong in</h4>'+listHtml(cf.likely_strong_in)+'</div>'
+    +   '<div class="card"><h4 style="margin-top:0;color:#92400e">Likely struggles in</h4>'+listHtml(cf.likely_struggles_in)+'</div>'
+    + '</div></section>'
+    + '<section><h2>Cognitive Style</h2>'
+    +   '<div class="summary"><b>Analytic ↔ Intuitive:</b> '+Math.round(clamp(cgn.analytic_vs_intuitive))+' (0 = intuitive · 100 = analytic)</div>'
+    +   pBar(cgn.analytic_vs_intuitive)
+    +   '<div class="summary"><b>Verbal fluency:</b> '+esc(cgn.verbal_fluency||'—')+'</div>'
+    +   (cgn.notes ? '<div class="summary">'+esc(cgn.notes)+'</div>' : '') + '</section>'
+    + '<section><h2>Self-Presentation Strategy</h2><div class="summary" style="font-size:11pt;line-height:1.7">'+esc(d.self_presentation_strategy||'—')+'</div></section>'
+    + '<section><h2>Evidence Map</h2><div class="small muted" style="margin-bottom:10px">Near-exact quotes from the subject\'s text, mapped to psychometric constructs.</div>'+(em||'<div class="muted">No quotes surfaced.</div>')+'</section>'
+    + '<section><h2>Cross-Source Notes</h2><div class="summary">'+esc(d.cross_source_notes||'—')+'</div></section>'
+    + '<section><h2>Caveats &amp; Limits</h2><div class="summary" style="color:#6b7280">'+esc(d.caveats||'—')+'</div>'
+    +   '<div class="small muted" style="margin-top:16px">Big Five (NEO-PI-R, 30 facets) · HEXACO (24 facets) · Dark Triad · DISC · Schwartz values · Lexical markers from Pennebaker, Yarkoni, Park et al. · Hiring-signal layer. Not clinical or diagnostic.</div></section>'
+    + '</div>' + printScript + '</body></html>';
 }
 
 updateSummary();
