@@ -1973,6 +1973,46 @@ function toPrintableHtml(d, opts){
       + '</div>';
   }).join('');
 
+  // Cover summary strips: full OCEAN + full DISC at-a-glance
+  const oceanRow = (k, label) => {
+    const t = d.bigfive?.[k];
+    const p = t != null ? Math.round(clamp(t.percentile)) : 0;
+    const conf = (t?.confidence || 'medium').toLowerCase();
+    return '<div class="ocean-row">'
+      + '<div class="or-label">'+esc(label)+'</div>'
+      + '<div class="or-bar"><div class="or-fill" style="width:'+p+'%"></div></div>'
+      + '<div class="or-val">'+p+'</div>'
+      + '<div class="or-conf '+confClass(conf)+'">'+esc(conf.slice(0,1).toUpperCase())+'</div>'
+      + '</div>';
+  };
+  const oceanHtml = BF.map(([k,l]) => oceanRow(k, l)).join('');
+
+  const discColors = {D:'#dc2626', I:'#f59e0b', S:'#10b981', C:'#7c3aed'};
+  const discLabelsShort = {D:'Dominance', I:'Influence', S:'Steadiness', C:'Conscientiousness'};
+  const miniDiscTiles = ['D','I','S','C'].map(k => {
+    const v = Math.round((d.disc?.scores||{})[k] || 0);
+    const primary = d.disc?.primary === k ? 'primary' : '';
+    return '<div class="mini-disc '+primary+'" style="--c:'+discColors[k]+'">'
+      + '<div class="md-letter">'+k+'</div>'
+      + '<div class="md-val">'+v+'</div>'
+      + '<div class="md-name">'+discLabelsShort[k]+'</div>'
+      + '</div>';
+  }).join('');
+  const discPrimaryLabel = d.disc?.primary ? (discLabelsShort[d.disc.primary] || d.disc.primary) : '\u2014';
+  const discSecondaryLabel = d.disc?.secondary ? (discLabelsShort[d.disc.secondary] || d.disc.secondary) : '\u2014';
+
+  const coverSummaryHtml =
+    '<div class="cover-summary">'
+    + '<div class="cs-block">'
+    +   '<div class="cs-head"><div class="cs-eb">Big Five \u00b7 OCEAN</div></div>'
+    +   '<div class="ocean-list">'+oceanHtml+'</div>'
+    + '</div>'
+    + '<div class="cs-block">'
+    +   '<div class="cs-head"><div class="cs-eb">DISC Communication</div><div class="cs-primary">'+esc(discPrimaryLabel)+' / '+esc(discSecondaryLabel)+'</div></div>'
+    +   '<div class="mini-disc-grid">'+miniDiscTiles+'</div>'
+    + '</div>'
+    + '</div>';
+
   const bfSection = BF.map(([k,l,a,f]) => traitCard(d.bigfive?.[k], l, a, f, 'bigfive', k)).join('');
   const hxSection = HX.map(([k,l,f]) => traitCard(d.hexaco?.[k], l, null, f, 'hexaco', k)).join('');
 
@@ -2070,6 +2110,29 @@ function toPrintableHtml(d, opts){
     '.cs-suffix{font-size:10pt;color:#9ca3af;font-weight:600;letter-spacing:.02em}',
     '.cs-badge{display:inline-block;font-size:9pt;padding:5px 12px;border-radius:999px;font-weight:700;letter-spacing:.06em;background:#ede9fe;color:#5b21b6;align-self:flex-start}',
     '.cs-badge.hi{background:#d1fae5;color:#065f46}.cs-badge.md{background:#fef3c7;color:#78350f}.cs-badge.lo{background:#fee2e2;color:#991b1b}',
+
+    /* COVER SUMMARY: OCEAN + DISC at-a-glance */
+    '.cover-summary{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;margin-top:22px;max-width:7in}',
+    '.cs-block{background:rgba(255,255,255,.75);border:1px solid rgba(167,139,250,.25);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden}',
+    '.cs-block::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#a78bfa,#ec4899)}',
+    '.cs-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}',
+    '.cs-eb{font-size:8pt;color:#7c3aed;text-transform:uppercase;letter-spacing:.16em;font-weight:700}',
+    '.cs-primary{font-size:9pt;color:#5b21b6;font-weight:700}',
+    '.ocean-list{display:flex;flex-direction:column;gap:6px}',
+    '.ocean-row{display:grid;grid-template-columns:86px 1fr 26px 16px;gap:8px;align-items:center;font-size:9.5pt}',
+    '.or-label{color:#1a1238;font-weight:600}',
+    '.or-bar{position:relative;height:7px;background:#ede9fe;border-radius:999px;overflow:hidden}',
+    '.or-fill{position:absolute;top:0;bottom:0;left:0;background:linear-gradient(90deg,#a78bfa,#ec4899);border-radius:999px}',
+    '.or-val{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:#5b21b6}',
+    '.or-conf{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;font-size:7pt;font-weight:800}',
+    '.or-conf.hi{background:#d1fae5;color:#065f46}.or-conf.md{background:#fef3c7;color:#78350f}.or-conf.lo{background:#fee2e2;color:#991b1b}',
+    '.mini-disc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}',
+    '.mini-disc{background:#fff;border:1px solid #ede9fe;border-radius:10px;padding:10px 6px;text-align:center;position:relative;overflow:hidden}',
+    '.mini-disc::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--c)}',
+    '.mini-disc.primary{border-color:var(--c);border-width:2px;box-shadow:0 0 0 2px rgba(124,58,237,.08)}',
+    '.md-letter{font-size:9pt;font-weight:800;color:var(--c);letter-spacing:.05em}',
+    '.md-val{font-size:20pt;font-weight:800;color:#1e0a52;line-height:1;margin:3px 0 1px;font-variant-numeric:tabular-nums}',
+    '.md-name{font-size:7.5pt;color:#6b7280;font-weight:500;line-height:1.15}',
     '.cover-meta{position:absolute;bottom:0.6in;left:0.55in;right:0.55in;z-index:1;display:flex;justify-content:space-between;align-items:baseline;padding-top:20px;border-top:1px solid #e4d9ff;font-size:9.5pt;color:#6b7280}',
 
     /* SECTIONS */
@@ -2206,6 +2269,7 @@ function toPrintableHtml(d, opts){
     +   '<div class="cover-rule"></div>'
     +   (subj.role_guess ? '<div class="cover-role">'+esc(subj.role_guess)+'</div>' : '')
     +   '<div class="cover-strip">'+coverStatsHtml+'</div>'
+    +   coverSummaryHtml
     + '</div>'
     + '<div class="cover-meta"><span>Generated '+esc(date)+'</span><span>v0.1 \u00b7 Evidence-anchored</span></div>'
     + '</section>'
