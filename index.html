@@ -250,6 +250,9 @@
     <section class="card">
       <h2>Inputs</h2>
       <div class="hint">Pick a mode. Add as many sources as you want — more sources = higher confidence.</div>
+      <div class="note" style="margin:4px 0 14px;padding:8px 12px;background:#0f0d22;border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.5">
+        <b style="color:var(--accent2);letter-spacing:.04em">Privacy:</b> Your resume text, URLs, and the generated report are <b>not stored on our servers</b>. The analysis streams directly between your browser and Anthropic; nothing is persisted in our database. Only your email is kept, for sign-in.
+      </div>
 
       <div class="modes" role="tablist">
         <button class="mode active" data-mode="resume">Resume</button>
@@ -956,15 +959,19 @@ async function callWizard(sources){
   const system = `You are INSIGHT — a deep computational personality-inference engine. You read text the subject has produced or curated (resume, LinkedIn, Facebook) and return a full psychometric report that goes beyond what Crystal Knows or Wonderlic produce. Your outputs are grounded in peer-reviewed frameworks: Big Five / NEO-PI-R (Costa & McCrae) with DeYoung's 10 aspects, HEXACO (Ashton & Lee) with all 24 facets including Honesty-Humility, the Dark Triad (Paulhus & Williams), DISC communication style, Schwartz's 10 basic values, self-determination theory drivers, Bartholomew/Hazan & Shaver attachment styles, and lexical markers from Pennebaker (LIWC, I-talk), Yarkoni's blog-corpus study, and Park/Schwartz/Eichstaedt/Kosinski's Facebook study.
 
 INPUT HANDLING:
-- The user message may contain: user-pasted text AND server-fetched content from URLs (marked with "=== FETCHED <label> (<url>) ===" blocks). BOTH are valid sources. Treat fetched blocks as first-person content the subject authored (GitHub bio/repos, LinkedIn profile excerpts, portfolio copy, Twitter posts, etc.).
-- If you see "=== UNREACHABLE SOURCES ===", those URLs could not be retrieved (auth walls, errors). Do NOT invent quotes from them — mention in caveats that those sources were URL-only.
-- Quote verbatim substrings from any fetched block in evidence_map, and put the source URL in the evidence "source" field (e.g. "GitHub · github.com/eddyoung").
+- The user message may contain: user-pasted text AND server-fetched content from URLs (marked with "=== FETCHED <label> (<url>) [Proxycurl|...] ===" blocks). BOTH are valid sources. Treat fetched blocks as first-person content the subject authored (GitHub bio/repos, LinkedIn profile via Proxycurl, portfolio copy, X/Twitter posts, etc.).
+- If you see "=== UNREACHABLE SOURCES ===", those URLs could not be retrieved (auth walls, missing API key, errors). Do NOT invent quotes from them — mention in caveats that those sources were URL-only and recommend the specific action (e.g. "Configure the Proxycurl API key on the server to enable LinkedIn crawling").
+- Quote verbatim substrings from any fetched block in evidence_map, and put the source URL in the evidence "source" field (e.g. "GitHub · github.com/eddyoung" or "LinkedIn · linkedin.com/in/eddyoung").
 - If signal is thin, widen CIs and say so in caveats. Do not hallucinate quotes to fill the evidence_map.
 
 CORE DISCIPLINE:
 - Continuous percentiles (0–100), NOT types. 50 = population median. Always include an 80% confidence interval (ci_low, ci_high).
-- Confidence per construct: "high" | "medium" | "low" — grounded in source type AND amount of signal.
-  * Resume: strong on Conscientiousness (Industriousness), Achievement-Striving, Competence, Order, some Assertiveness. Weak on Openness-proper, Neuroticism, Agreeableness, Honesty-Humility.
+- Confidence per construct: "high" | "medium" | "low" — grounded in source type AND amount of signal. THESE RULES ARE STRICT:
+  * LOW confidence is MANDATORY whenever the estimate is based on ABSENCE of markers (i.e. "no markers surfaced"). Absence of evidence is not evidence of absence — it is low-confidence evidence, period. This applies to ALL Dark Triad traits, Honesty-Humility, Neuroticism, and any trait where you cannot produce at least one anchoring quote.
+  * LOW is also mandatory when signal is thin (< 2 anchoring quotes in evidence_map for that construct) OR when the source type is known-weak for that construct.
+  * MEDIUM requires 2+ anchoring quotes from a source type that is known-medium-or-better for that construct.
+  * HIGH requires 3+ anchoring quotes, convergent signal across multiple sources, AND a source type known-strong for that construct.
+  * Resume: strong on Conscientiousness (Industriousness), Achievement-Striving, Competence, Order, some Assertiveness. Weak on Openness-proper, Neuroticism, Agreeableness, Honesty-Humility, and the Dark Triad (default to LOW on these unless explicit markers surface).
   * LinkedIn: medium on Conscientiousness, Agreeableness (in recs), Honesty-Humility (modesty vs grandiosity), Extraversion (Social Boldness).
   * Facebook: strong on Extraversion, Neuroticism, Agreeableness, Openness (Feelings/Fantasy). Signal for Honesty-Humility if grandiosity/contempt/status-signaling present.
 - Facet-level reasoning is mandatory when signal supports it. Differentiate DeYoung aspects (Industriousness vs Orderliness, Enthusiasm vs Assertiveness, Compassion vs Politeness, Volatility vs Withdrawal, Intellect vs Openness-proper).
@@ -1911,21 +1918,31 @@ function toPrintableHtml(d, opts){
   const bfDims = BF.map(([k,l]) => ({ label: l.slice(0,4), pct: clamp(d.bigfive?.[k]?.percentile) }));
   const hxDims = HX.map(([k,l]) => ({ label: l.length>10 ? l.slice(0,3) : l.slice(0,4), pct: clamp(d.hexaco?.[k]?.percentile) }));
 
-  // Cover stat strip \u2014 four uniformly structured headline tiles
-  const topDom = BF.map(([k,l]) => ({ label: l, pct: clamp(d.bigfive?.[k]?.percentile) })).sort((a,b) => b.pct-a.pct);
+  // Cover stat strip \u2014 four uniformly structured headline tiles.
+  // Strongest/Lowest consider the FULL profile (Big Five + HEXACO H-H + Dark Triad),
+  // not just Big Five \u2014 otherwise very low Dark Triad scores get missed.
+  const allTraits = [
+    ...BF.map(([k,l]) => ({ label: l, pct: clamp(d.bigfive?.[k]?.percentile), valid: d.bigfive?.[k]?.percentile != null })),
+    { label: 'Honesty-Humility', pct: clamp(d.hexaco?.honesty_humility?.percentile), valid: d.hexaco?.honesty_humility?.percentile != null },
+    { label: 'Machiavellianism', pct: clamp(d.dark_triad?.machiavellianism?.percentile), valid: d.dark_triad?.machiavellianism?.percentile != null },
+    { label: 'Narcissism', pct: clamp(d.dark_triad?.narcissism?.percentile), valid: d.dark_triad?.narcissism?.percentile != null },
+    { label: 'Psychopathy', pct: clamp(d.dark_triad?.psychopathy?.percentile), valid: d.dark_triad?.psychopathy?.percentile != null },
+  ].filter(t => t.valid).sort((a,b) => b.pct - a.pct);
+  const strongest = allTraits[0];
+  const lowest = allTraits[allTraits.length-1];
   const discP = d.disc?.primary;
   const discScore = (discP && d.disc?.scores) ? Math.round(d.disc.scores[discP]||0) : null;
   const coverStats = [
     {
       label: 'Strongest trait',
-      value: topDom[0] ? topDom[0].label : '\u2014',
-      score: topDom[0] ? Math.round(topDom[0].pct) : null,
+      value: strongest ? strongest.label : '\u2014',
+      score: strongest ? Math.round(strongest.pct) : null,
       suffix: '/100',
     },
     {
       label: 'Lowest trait',
-      value: topDom.length ? topDom[topDom.length-1].label : '\u2014',
-      score: topDom.length ? Math.round(topDom[topDom.length-1].pct) : null,
+      value: lowest ? lowest.label : '\u2014',
+      score: lowest ? Math.round(lowest.pct) : null,
       suffix: '/100',
     },
     {
