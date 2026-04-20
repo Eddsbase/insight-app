@@ -954,14 +954,9 @@ let LAST_DATA = null;
 async function callWizard(sources){
   const system = `You are INSIGHT — a deep computational personality-inference engine. You read text the subject has produced or curated (resume, LinkedIn, Facebook) and return a full psychometric report that goes beyond what Crystal Knows or Wonderlic produce. Your outputs are grounded in peer-reviewed frameworks: Big Five / NEO-PI-R (Costa & McCrae) with DeYoung's 10 aspects, HEXACO (Ashton & Lee) with all 24 facets including Honesty-Humility, the Dark Triad (Paulhus & Williams), DISC communication style, Schwartz's 10 basic values, self-determination theory drivers, Bartholomew/Hazan & Shaver attachment styles, and lexical markers from Pennebaker (LIWC, I-talk), Yarkoni's blog-corpus study, and Park/Schwartz/Eichstaedt/Kosinski's Facebook study.
 
-TOOLS — you have web_search and web_fetch available. USE THEM AGGRESSIVELY to enrich thin inputs:
-- If a LinkedIn URL is provided, web_fetch the profile; if blocked, web_search for the person (name + company + role keywords) to surface their public history, talks, articles, podcast interviews, bylined work, press mentions, and prior roles.
-- If a GitHub URL is provided, web_fetch it (public bio, pinned repos, README content) and cite language/project patterns.
-- If a Twitter/X or portfolio URL is provided, web_fetch it for tone, cadence, topics.
-- If the inputs contain a name plus a company or role, run 2-4 targeted searches to find the subject's public writing, talks, and press. Prefer first-person sources (their own posts, interviews where they speak, bylined pieces) over third-party summaries.
-- When the resume is thin, short, or extraction-only-metadata, web_search and web_fetch are REQUIRED — do not default all traits to 50. Enrich first, THEN reason.
-- Every quote you cite in evidence_map must come from the actual source (provided text OR the web-fetched content). Do not invent quotes. When a quote is from the web, include the URL in the "source" field (e.g. "LinkedIn · https://linkedin.com/in/eddyoung"). If the fetched page was sparse or access-blocked, say so in caveats and proceed with what you have.
-- Budget: up to ~8 web_search + 8 web_fetch calls per run. Spend them; don't be stingy.
+INPUT HANDLING:
+- Work ONLY with the text provided in the user message (resume / LinkedIn paste / Facebook paste / social URLs). Do not claim to have browsed anything. If a URL is provided without accompanying pasted content, note it as context metadata only — do not invent quotes from it.
+- If signal is thin, widen CIs and say so in caveats. Do not hallucinate quotes to fill the evidence_map.
 
 CORE DISCIPLINE:
 - Continuous percentiles (0–100), NOT types. 50 = population median. Always include an 80% confidence interval (ci_low, ci_high).
@@ -1212,10 +1207,12 @@ Never include anything outside the JSON object.`;
   const parsed = extractJson(collectedText);
   if (!parsed) {
     const stop = window.__lastStopReason || 'unknown';
-    const hint = stop === 'max_tokens'
-      ? 'Response was cut off at the output-token limit (model kept writing past budget). Try removing the Facebook/LinkedIn sources or shortening the resume.'
-      : 'Model returned malformed JSON.';
-    throw new Error(`Could not parse JSON (stop_reason: ${stop}, ${collectedText.length} chars). ${hint} Last 300 chars: …${collectedText.slice(-300)}`);
+    throw new Error(`Could not parse JSON (stop_reason: ${stop}, ${collectedText.length} chars). Last 200 chars: …${collectedText.slice(-200)}`);
+  }
+  // Note if we ended without a terminal event — response may be a salvaged partial.
+  const stop = window.__lastStopReason;
+  if (!stop && collectedText.length > 0) {
+    parsed.__truncated = true;
   }
   LAST_DATA = parsed;
   return parsed;
@@ -1225,10 +1222,68 @@ function extractJson(text){
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const raw = fence ? fence[1] : text;
   const first = raw.indexOf('{');
-  const last = raw.lastIndexOf('}');
-  if (first < 0 || last < 0) return null;
-  try { return JSON.parse(raw.slice(first, last+1)); }
-  catch { return null; }
+  if (first < 0) return null;
+  const body = raw.slice(first);
+
+  // Fast path: response is complete and well-formed.
+  const lastBrace = body.lastIndexOf('}');
+  if (lastBrace >= 0) {
+    try { return JSON.parse(body.slice(0, lastBrace+1)); } catch { /* fall through */ }
+  }
+
+  // Salvage path: response was truncated. Walk the string tracking bracket/quote
+  // state, then auto-close whatever is still open.
+  let inString = false;
+  let escape = false;
+  const stack = [];
+  let lastSafeCut = -1; // last position right after we finished a key-value at depth >= 1
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (inString) {
+      if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === '{' || ch === '[') stack.push(ch);
+    else if (ch === '}' || ch === ']') {
+      stack.pop();
+      if (stack.length >= 1) lastSafeCut = i + 1; // safe boundary inside parent
+    } else if (ch === ',' && stack.length >= 1) {
+      lastSafeCut = i; // comma at container depth — also safe
+    }
+  }
+
+  // Strategy: cut at last safe boundary, strip trailing comma, close open brackets.
+  let cut = lastSafeCut > 0 ? lastSafeCut : body.length;
+  let partial = body.slice(0, cut);
+  if (inString) {
+    // we were mid-string when the stream ended — drop the partial value
+    const lastQuote = partial.lastIndexOf('"');
+    const commaBefore = partial.lastIndexOf(',', lastQuote);
+    if (commaBefore > 0) partial = partial.slice(0, commaBefore);
+  }
+  partial = partial.replace(/,\s*$/, '');
+
+  // Rebuild the bracket stack from scratch for the trimmed partial.
+  inString = false; escape = false;
+  const openStack = [];
+  for (let i = 0; i < partial.length; i++) {
+    const ch = partial[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (inString) { if (ch === '"') inString = false; continue; }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === '{' || ch === '[') openStack.push(ch);
+    else if (ch === '}' || ch === ']') openStack.pop();
+  }
+  while (openStack.length) {
+    const top = openStack.pop();
+    partial += top === '{' ? '}' : ']';
+  }
+
+  try { return JSON.parse(partial); } catch { return null; }
 }
 
 /* ---------- render ---------- */
