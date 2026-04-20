@@ -1423,6 +1423,28 @@ const TRAIT_INTERP = {
     ],
   },
 };
+// Model sometimes tags absence-based findings as MEDIUM confidence. Absence of
+// markers is LOW-confidence evidence by definition — this enforces that on
+// render, regardless of what the model returned.
+function effectiveConfidence(confidence, ...evidenceTexts){
+  const base = (confidence || 'medium').toLowerCase();
+  const text = evidenceTexts.filter(Boolean).join(' ').toLowerCase();
+  if (!text) return base;
+  const absencePatterns = [
+    /\bno\s+[a-z-]*\s*markers?\s+surfaced\b/,
+    /\bno\s+markers?\s+(were\s+)?(surfaced|present|found|detected)\b/,
+    /\bmarkers?\s+surfaced:?\s*none\b/,
+    /\babsence\s+of\s+(any\s+)?(markers?|signals?|evidence|cues?)/,
+    /\bno\s+(psychopathy|machiavellianism|narcissism|dark[- ]triad|grandiosity|manipulation)\s+(markers?|cues?|signals?)/,
+    /\bno\s+(impulsivity|callousness|rule[- ]breaking|exploitation)\s+(markers?|cues?|signals?|rationalizations?)/,
+    /\b(no|zero)\s+(manipulation|exploitative|grandiose)\s+(markers?|patterns?|signals?|content)/,
+    /\bnothing\s+(exploitative|manipulative|grandiose|concerning)/,
+    /\bno\s+(low|high)[- ]?[hmnea][- ]?[hmnea]?\s+markers?\b/,
+  ];
+  if (absencePatterns.some(r => r.test(text))) return 'low';
+  return base;
+}
+
 function interpretTrait(category, key, percentile){
   const bands = TRAIT_INTERP[category] && TRAIT_INTERP[category][key];
   if (!bands) return '';
@@ -1457,9 +1479,10 @@ function render(data){
     const pct = clamp(t.percentile);
     const wrap = document.createElement('div');
     const interp = interpretTrait('bigfive', k, pct);
+    const effConf = effectiveConfidence(t.confidence, t.summary, t.notes);
     wrap.innerHTML = `
       <div class="trait">
-        <div class="traitName">${label}<span class="conf ${confClass(t.confidence)}">${escape((t.confidence||'medium').toUpperCase())}</span></div>
+        <div class="traitName">${label}<span class="conf ${confClass(effConf)}">${escape(effConf.toUpperCase())}</span></div>
         ${renderBar(pct, t.ci_low, t.ci_high)}
         <div class="pct">${Math.round(pct)}</div>
       </div>
@@ -1486,9 +1509,10 @@ function render(data){
     const pct = clamp(t.percentile);
     const wrap = document.createElement('div');
     const interp = interpretTrait('hexaco', k, pct);
+    const effConf = effectiveConfidence(t.confidence, t.notes);
     wrap.innerHTML = `
       <div class="trait">
-        <div class="traitName">${label}<span class="conf ${confClass(t.confidence)}">${escape((t.confidence||'medium').toUpperCase())}</span></div>
+        <div class="traitName">${label}<span class="conf ${confClass(effConf)}">${escape(effConf.toUpperCase())}</span></div>
         ${renderBar(pct)}
         <div class="pct">${Math.round(pct)}</div>
       </div>
@@ -1517,9 +1541,10 @@ function render(data){
     const pct = clamp(t.percentile);
     const row = document.createElement('div');
     const interp = interpretTrait('darktriad', k, pct);
+    const effConf = effectiveConfidence(t.confidence, t.evidence);
     row.innerHTML = `
       <div class="trait">
-        <div class="traitName">${label}<span class="conf ${confClass(t.confidence)}">${escape((t.confidence||'medium').toUpperCase())}</span></div>
+        <div class="traitName">${label}<span class="conf ${confClass(effConf)}">${escape(effConf.toUpperCase())}</span></div>
         ${renderBar(pct)}
         <div class="pct">${Math.round(pct)}</div>
       </div>
@@ -1892,10 +1917,11 @@ function toPrintableHtml(d, opts){
     const pct = Math.round(clamp(t.percentile));
     const interp = typeof interpretTrait === 'function' ? interpretTrait(category, key, t.percentile) : '';
     const evidenceText = t.summary || t.notes || t.evidence || '';
+    const effConf = typeof effectiveConfidence === 'function' ? effectiveConfidence(t.confidence, evidenceText) : (t.confidence||'medium');
     const ci = (t.ci_low!=null && t.ci_high!=null) ? ' <span class="ci-range">80% CI '+Math.round(clamp(t.ci_low))+'\u2013'+Math.round(clamp(t.ci_high))+'</span>' : '';
     return '<div class="trait-card">'
       + '<div class="trait-head">'
-      +   '<div class="trait-name">'+esc(label)+'<span class="conf '+confClass(t.confidence)+'">'+esc((t.confidence||'medium').toUpperCase())+'</span></div>'
+      +   '<div class="trait-name">'+esc(label)+'<span class="conf '+confClass(effConf)+'">'+esc(effConf.toUpperCase())+'</span></div>'
       +   '<div class="trait-score">'+pct+'</div>'
       + '</div>'
       + '<div class="bar-row">'+pBar(t.percentile, t.ci_low, t.ci_high)+'<div class="bar-markers"><span>0</span><span>50</span><span>100</span></div>'+ci+'</div>'
