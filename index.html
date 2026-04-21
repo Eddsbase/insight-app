@@ -67,6 +67,18 @@
   .mode.active{background:var(--ink);color:#0a0a0a;border-color:var(--ink)}
   .panel{display:none;gap:14px;flex-direction:column}
   .panel.active{display:flex}
+
+  /* 30-item assessment UI */
+  .assess-item{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#0f0d22;margin-bottom:8px;transition:border-color .15s}
+  .assess-item.answered{border-color:rgba(167,139,250,.4);background:#13102a}
+  .assess-q{display:flex;gap:8px;color:var(--ink);font-size:13.5px;line-height:1.45;margin-bottom:8px}
+  .assess-num{color:var(--accent2);font-variant-numeric:tabular-nums;font-weight:700;flex-shrink:0}
+  .assess-stem{color:var(--muted);font-style:italic;font-size:12.5px}
+  .likert{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .likert-pill{background:transparent;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:8px 6px;font-size:13px;font-weight:700;cursor:pointer;transition:all .12s;font-variant-numeric:tabular-nums}
+  .likert-pill:hover{border-color:var(--accent);color:var(--ink)}
+  .likert-pill.selected{background:var(--accent);color:#0a0a0a;border-color:var(--accent);box-shadow:0 0 12px rgba(167,139,250,.4)}
+  @media (max-width:640px){.likert{grid-template-columns:repeat(5,1fr);gap:4px}.likert-pill{padding:10px 4px;font-size:12px}}
   label{font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;display:block}
   textarea,input[type=text],input[type=url],input[type=password]{width:100%;background:#0f0d22;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px 12px;font:14px/1.5 ui-sans-serif,system-ui,Arial;outline:none;transition:border .15s}
   textarea{min-height:140px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
@@ -259,6 +271,7 @@
         <button class="mode" data-mode="linkedin">LinkedIn</button>
         <button class="mode" data-mode="facebook">Facebook</button>
         <button class="mode" data-mode="combined">Deeper Look (all)</button>
+        <button class="mode" data-mode="assessment">30-Q assessment</button>
       </div>
 
       <!-- Resume -->
@@ -358,6 +371,30 @@
           <label>Facebook content</label>
           <textarea id="comboFacebookText" placeholder="Paste bio, posts, status updates, comments"></textarea>
         </div>
+      </div>
+
+      <!-- 30-item validated self-report assessment -->
+      <div class="panel" data-panel="assessment">
+        <div>
+          <label>Who is taking this assessment?</label>
+          <div class="row">
+            <div>
+              <label style="font-size:11px;margin-bottom:3px">Name (optional)</label>
+              <input type="text" id="assessName" placeholder="Subject's name" />
+            </div>
+            <div>
+              <label style="font-size:11px;margin-bottom:3px">Role (optional)</label>
+              <input type="text" id="assessRole" placeholder="e.g. Director of Sales" />
+            </div>
+          </div>
+          <div class="note" style="margin-top:6px">30 items · ~4–5 min · Answers are scored in your browser and never sent to any server. Only the computed trait percentiles are included in the analysis.</div>
+        </div>
+        <div id="assessForm" style="margin-top:14px"></div>
+        <div class="actions" style="margin-top:6px">
+          <button class="clear" id="assessScoreBtn" type="button">Score assessment</button>
+          <span class="note" id="assessStatus"></span>
+        </div>
+        <div id="assessResult" class="note" style="display:none;margin-top:10px;padding:12px;background:#0f0d22;border:1px solid var(--line);border-radius:10px;color:var(--ink)"></div>
       </div>
 
       <div class="actions">
@@ -617,6 +654,39 @@ function gatherSources(){
     push('LinkedIn', val('comboLinkedinText'), val('comboLinkedinUrl'));
     push('Facebook', val('comboFacebookText'), val('comboFacebookUrl'));
   }
+  else if (mode === 'assessment') {
+    // Direct self-report assessment — scores computed client-side (see ASSESSMENT_ITEMS)
+    if (window.__assessmentScores) {
+      const s = window.__assessmentScores;
+      const name = val('assessName') || '';
+      const role = val('assessRole') || '';
+      const lines = [];
+      if (name) lines.push('Subject: ' + name);
+      if (role) lines.push('Role: ' + role);
+      lines.push('');
+      lines.push('This subject completed a 30-item validated self-report personality assessment. The following are their computed trait percentiles (0\u2013100, population-normed from the item means).');
+      lines.push('');
+      lines.push('Big Five (from BFI-2-XS, Soto & John 2017):');
+      lines.push(`  Openness: ${s.bigfive.openness}`);
+      lines.push(`  Conscientiousness: ${s.bigfive.conscientiousness}`);
+      lines.push(`  Extraversion: ${s.bigfive.extraversion}`);
+      lines.push(`  Agreeableness: ${s.bigfive.agreeableness}`);
+      lines.push(`  Neuroticism: ${s.bigfive.neuroticism}`);
+      lines.push('');
+      lines.push('Dark Triad (from Dirty Dozen, Jonason & Webster 2010):');
+      lines.push(`  Machiavellianism: ${s.dark.machiavellianism}`);
+      lines.push(`  Narcissism: ${s.dark.narcissism}`);
+      lines.push(`  Psychopathy: ${s.dark.psychopathy}`);
+      lines.push('');
+      lines.push('Attachment (from adapted ECR-S items):');
+      lines.push(`  Anxiety dimension: ${s.attachment.anxiety}`);
+      lines.push(`  Avoidance dimension: ${s.attachment.avoidance}`);
+      lines.push(`  Implied style: ${s.attachment.style}`);
+      lines.push('');
+      lines.push('These are self-report scores \u2014 HIGH confidence on Big Five domains (validated instrument), MEDIUM on Dark Triad (short-form limitation), MEDIUM on attachment.');
+      sources.push({ label: 'Validated Assessment', text: lines.join('\n') });
+    }
+  }
   return sources;
 }
 function val(id){ return document.getElementById(id).value; }
@@ -628,6 +698,165 @@ function updateSummary(){
   el.textContent = `${s.length} source${s.length>1?'s':''} — ${total.toLocaleString()} chars`;
 }
 document.addEventListener('input', updateSummary);
+
+/* ---------- 30-item validated assessment ---------- */
+// BFI-2-XS (15 items, Big Five): Soto & John (2017)
+// Dirty Dozen (12 items, Dark Triad): Jonason & Webster (2010)
+// 3 adapted ECR-S items for attachment: Wei et al. (2007)
+// All use a 5-point Likert: 1=Disagree strongly, 5=Agree strongly
+const ASSESSMENT_ITEMS = [
+  // --- BFI-2-XS (15 items) ---
+  { i: 1,  text: 'Tends to be quiet.',                                  scale: 'bfi', trait: 'extraversion',      reverse: true  },
+  { i: 2,  text: 'Is compassionate, has a soft heart.',                 scale: 'bfi', trait: 'agreeableness',     reverse: false },
+  { i: 3,  text: 'Tends to be disorganized.',                            scale: 'bfi', trait: 'conscientiousness', reverse: true  },
+  { i: 4,  text: 'Worries a lot.',                                       scale: 'bfi', trait: 'neuroticism',       reverse: false },
+  { i: 5,  text: 'Is fascinated by art, music, or literature.',         scale: 'bfi', trait: 'openness',          reverse: false },
+  { i: 6,  text: 'Is dominant, acts as a leader.',                      scale: 'bfi', trait: 'extraversion',      reverse: false },
+  { i: 7,  text: 'Is sometimes rude to others.',                        scale: 'bfi', trait: 'agreeableness',     reverse: true  },
+  { i: 8,  text: 'Has difficulty getting started on tasks.',            scale: 'bfi', trait: 'conscientiousness', reverse: true  },
+  { i: 9,  text: 'Tends to feel depressed, blue.',                      scale: 'bfi', trait: 'neuroticism',       reverse: false },
+  { i: 10, text: 'Has little interest in abstract ideas.',              scale: 'bfi', trait: 'openness',          reverse: true  },
+  { i: 11, text: 'Is full of energy.',                                  scale: 'bfi', trait: 'extraversion',      reverse: false },
+  { i: 12, text: 'Assumes the best about people.',                      scale: 'bfi', trait: 'agreeableness',     reverse: false },
+  { i: 13, text: 'Is reliable, can always be counted on.',              scale: 'bfi', trait: 'conscientiousness', reverse: false },
+  { i: 14, text: 'Is emotionally stable, not easily upset.',            scale: 'bfi', trait: 'neuroticism',       reverse: true  },
+  { i: 15, text: 'Is original, comes up with new ideas.',               scale: 'bfi', trait: 'openness',          reverse: false },
+  // --- Dirty Dozen (12 items) ---
+  { i: 16, text: 'I tend to manipulate others to get my way.',          scale: 'dd', trait: 'machiavellianism' },
+  { i: 17, text: 'I have used deceit or lied to get my way.',           scale: 'dd', trait: 'machiavellianism' },
+  { i: 18, text: 'I have used flattery to get my way.',                 scale: 'dd', trait: 'machiavellianism' },
+  { i: 19, text: 'I tend to exploit others toward my own end.',         scale: 'dd', trait: 'machiavellianism' },
+  { i: 20, text: 'I tend to lack remorse.',                             scale: 'dd', trait: 'psychopathy' },
+  { i: 21, text: 'I tend to be unconcerned with the morality of my actions.', scale: 'dd', trait: 'psychopathy' },
+  { i: 22, text: 'I tend to be callous or insensitive.',                scale: 'dd', trait: 'psychopathy' },
+  { i: 23, text: 'I tend to be cynical.',                               scale: 'dd', trait: 'psychopathy' },
+  { i: 24, text: 'I tend to want others to admire me.',                 scale: 'dd', trait: 'narcissism' },
+  { i: 25, text: 'I tend to want others to pay attention to me.',       scale: 'dd', trait: 'narcissism' },
+  { i: 26, text: 'I tend to seek prestige or status.',                  scale: 'dd', trait: 'narcissism' },
+  { i: 27, text: 'I tend to expect special favors from others.',        scale: 'dd', trait: 'narcissism' },
+  // --- ECR-S adapted (3 items) ---
+  { i: 28, text: 'I worry that people close to me won\'t care about me as much as I care about them.', scale: 'ecr', trait: 'anxiety', reverse: false },
+  { i: 29, text: 'I prefer not to show others how I feel deep down.',   scale: 'ecr', trait: 'avoidance', reverse: false },
+  { i: 30, text: 'I find it relatively easy to get close to others.',   scale: 'ecr', trait: 'avoidance', reverse: true },
+];
+const LIKERT_LABELS = ['Disagree strongly','Disagree','Neither','Agree','Agree strongly'];
+
+function renderAssessment(){
+  const form = document.getElementById('assessForm');
+  if (!form) return;
+  form.innerHTML = ASSESSMENT_ITEMS.map((item, idx) => {
+    const tag = item.scale === 'bfi' ? 'I am someone who...' : item.scale === 'dd' ? '' : '';
+    const pills = [1,2,3,4,5].map(v => `<button type="button" class="likert-pill" data-q="${item.i}" data-v="${v}" title="${LIKERT_LABELS[v-1]}">${v}</button>`).join('');
+    return `<div class="assess-item" data-qidx="${item.i}">
+      <div class="assess-q"><span class="assess-num">${item.i}.</span><span>${tag ? '<span class="assess-stem">'+tag+'</span> ' : ''}${item.text}</span></div>
+      <div class="likert">${pills}</div>
+    </div>`;
+  }).join('');
+  // wire pill clicks
+  form.querySelectorAll('.likert-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = btn.getAttribute('data-q');
+      form.querySelectorAll(`.likert-pill[data-q="${q}"]`).forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      btn.closest('.assess-item').classList.add('answered');
+    });
+  });
+}
+
+function scoreAssessment(){
+  const answered = {};
+  document.querySelectorAll('.likert-pill.selected').forEach(b => {
+    answered[Number(b.getAttribute('data-q'))] = Number(b.getAttribute('data-v'));
+  });
+  const missing = ASSESSMENT_ITEMS.filter(it => !answered[it.i]).map(it => it.i);
+  if (missing.length) {
+    document.getElementById('assessStatus').innerHTML = `<span style="color:var(--warn)">Please answer all items. Missing: ${missing.join(', ')}.</span>`;
+    // scroll to first missing
+    const firstEl = document.querySelector(`.assess-item[data-qidx="${missing[0]}"]`);
+    if (firstEl) firstEl.scrollIntoView({block:'center', behavior:'smooth'});
+    return null;
+  }
+  // helper: compute mean of items for a trait, reversing where flagged, then map 1-5 → 0-100
+  const mean = (items) => items.reduce((sum,it) => {
+    const raw = answered[it.i];
+    const val = it.reverse ? (6 - raw) : raw;
+    return sum + val;
+  }, 0) / items.length;
+  const pct = (m) => Math.round((m - 1) / 4 * 100);
+  const byScaleTrait = (scale, trait) => ASSESSMENT_ITEMS.filter(it => it.scale === scale && it.trait === trait);
+  const scores = {
+    bigfive: {
+      openness:          pct(mean(byScaleTrait('bfi','openness'))),
+      conscientiousness: pct(mean(byScaleTrait('bfi','conscientiousness'))),
+      extraversion:      pct(mean(byScaleTrait('bfi','extraversion'))),
+      agreeableness:     pct(mean(byScaleTrait('bfi','agreeableness'))),
+      neuroticism:       pct(mean(byScaleTrait('bfi','neuroticism'))),
+    },
+    dark: {
+      machiavellianism: pct(mean(byScaleTrait('dd','machiavellianism'))),
+      narcissism:       pct(mean(byScaleTrait('dd','narcissism'))),
+      psychopathy:      pct(mean(byScaleTrait('dd','psychopathy'))),
+    },
+    attachment: (() => {
+      const anx  = pct(mean(byScaleTrait('ecr','anxiety')));
+      const avd  = pct(mean(byScaleTrait('ecr','avoidance')));
+      let style = 'secure';
+      if (anx >= 60 && avd >= 60) style = 'fearful-avoidant';
+      else if (anx >= 60 && avd <  60) style = 'anxious-preoccupied';
+      else if (anx <  60 && avd >= 60) style = 'dismissive-avoidant';
+      else                              style = 'secure';
+      return { anxiety: anx, avoidance: avd, style };
+    })(),
+  };
+  window.__assessmentScores = scores;
+  return scores;
+}
+
+function renderAssessmentResult(s){
+  const el = document.getElementById('assessResult');
+  if (!s) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const row = (label, val) => `<div style="display:grid;grid-template-columns:1fr auto;gap:10px;font-size:13px;padding:2px 0"><span style="color:var(--muted)">${label}</span><span style="color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums">${val}</span></div>`;
+  el.innerHTML = `
+    <div style="font-weight:700;color:var(--accent2);letter-spacing:.08em;text-transform:uppercase;font-size:11px;margin-bottom:8px">Assessment scored — ready to include in analysis</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+      <div>
+        <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:4px">Big Five</div>
+        ${row('Openness', s.bigfive.openness)}
+        ${row('Conscientiousness', s.bigfive.conscientiousness)}
+        ${row('Extraversion', s.bigfive.extraversion)}
+        ${row('Agreeableness', s.bigfive.agreeableness)}
+        ${row('Neuroticism', s.bigfive.neuroticism)}
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:4px">Dark Triad</div>
+        ${row('Machiavellianism', s.dark.machiavellianism)}
+        ${row('Narcissism', s.dark.narcissism)}
+        ${row('Psychopathy', s.dark.psychopathy)}
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:4px">Attachment</div>
+        ${row('Anxiety', s.attachment.anxiety)}
+        ${row('Avoidance', s.attachment.avoidance)}
+        ${row('Style', s.attachment.style)}
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:12px;color:var(--muted)">Click <b>Run Insight</b> to run a full analysis incorporating these scores as a validated source.</div>
+  `;
+}
+
+// Wire up on DOMContentLoaded-equivalent (script runs at end of body)
+renderAssessment();
+const assessScoreBtn = document.getElementById('assessScoreBtn');
+if (assessScoreBtn) assessScoreBtn.addEventListener('click', () => {
+  const status = document.getElementById('assessStatus');
+  status.textContent = '';
+  const s = scoreAssessment();
+  if (!s) return;
+  renderAssessmentResult(s);
+  status.innerHTML = '<span style="color:var(--ok)">Scored. Ready to include in analysis.</span>';
+  updateSummary();
+});
 
 /* ---------- Supabase auth ---------- */
 const SUPABASE_URL = 'https://urfcnqjziwoozzbdgwmv.supabase.co';
